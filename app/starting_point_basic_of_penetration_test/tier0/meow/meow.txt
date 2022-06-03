@@ -1,0 +1,16 @@
+*** MEOW ***
+
+TELNET 
+
+	@ sudo pacman -S inetutils // содержит пакет telnet
+
+	@ nmap <ip>
+		
+		telnet 23/TCP
+
+	@ telnet  <ip> 
+
+		~ cat flag.txt
+
+
+	

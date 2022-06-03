@@ -1,0 +1,39 @@
+*** DANCING ***
+
+SMB - Send Message Block 
+
+	
+	@ pacman -S smbclient samba // SMB клиент для подключения к общей папке
+
+		# так как файлов конфигурации клиента smb не предоставляется
+		его нужно скачать с гит-репозитория:
+			
+			https://git.samba.org/samba.git/?p=samba.git;a=blob_plain;f=examples/smb.conf.default;hb=HEAD
+
+	@ mv example_samba.smb.conf /etc/samba/smb.conf
+
+	@ systemctl start smb
+
+	---
+
+	@ smbclient <ip> -L 
+
+		WorkShares Disk
+
+	@ smbclient //<ip>/WorkShares
+		
+		~ ls 
+			
+			Any.D
+		
+		~ cd Any.D
+			
+		~ ls 
+			
+			flag.txt
+
+		~ get flag.txt
+
+	@current_dir: cat flag.txt
+
+	

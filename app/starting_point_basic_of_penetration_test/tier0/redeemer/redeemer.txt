@@ -1,0 +1,47 @@
+*** REDEEMER ***
+
+Redis service
+
+		
+		@ nmap <ip> -v // при стандартном сканировании ничего не обнаружилось
+						  
+				Not shown: 1000 closed tcp ports (reset)
+				
+				# возможно есть необходимость просканировать больше портов
+
+		
+		@ nmap <ip> -v -p 1000-9999 
+			
+			6379/tcp open  redis // был найден порт 6379 
+				
+				# информации маловато попробуем опредлить ос версии
+
+		@ nmap <ip> -v -p 6379 -sV
+				
+			6379/tcp open  redis   Redis key-value store 5.0.7
+
+			# in memory database of Redis service
+
+	
+### Для взаимодействия с базой Redis необходимо использовать 
+		
+		redis-cli
+
+		@ sudo pacman -S redis 
+
+
+		@ redis-cli -h <ip> # подключение к хосту
+			
+			~ ping # проверить подключение к базе
+				
+				PONG
+
+			~ info # узнать статистику сервера redis
+
+			~ SELECT # испоьзуется для выбора нужной базы
+
+			~ KEYS * # команда для получения всех ключей базы 
+
+			~ GET flag # узнать что содержится по ключу flag
+				
+				"03e1d2b376c37ab3f5319922053953eb"

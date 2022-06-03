@@ -1,0 +1,21 @@
+*** FAWN ***
+
+FTP
+
+	@ pacman -S lftp // клиент для работы с ftp сервером
+
+	@ sudo nmap <ip > 
+		
+		21 ftp
+
+	@ lftp <ip> // automatic anonim autorize
+		
+		~ ls
+		~ mirror
+
+	@current_dir: ls
+		
+		flag.txt
+
+	@ cat flag.txt 
+
