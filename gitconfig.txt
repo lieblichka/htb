@@ -1,0 +1,38 @@
+### Доверять указанной папке
+git config --global --add safe.directory app/starting_point_basic_of_penetration_test/tier1/appointment/SecLists
+
+
+### Конфигурации git 
+	
+	git config --global http.version HTTP/1.1
+		
+		- изменение версии передачи данных HTTP к v.1 
+	
+	git config --global http.version HTTP/2
+		
+		- изменение версии передачи данных HTTP к v.2 
+
+
+### Полезные команды 
+	
+	git checkout <filename>
+		
+		- восстановление случайно удаленного файла из локального репозитория
+
+
+
+### Удаление http.postBuffer 
+	
+	git config --show-origin --get-all http.postBuffer
+		
+		# Чтобы проверить, задан ли он
+
+	git config --global --unset http.postBuffer
+		
+		# Может потребоваться удалить его в глобальном .gitconfig файле:
+
+	git config --local --unset http.postBuffer
+		
+		А также на уровне .git/config репозитория (который переопределяет глобальный параметр):
+
+	
