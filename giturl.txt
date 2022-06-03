@@ -1,0 +1,8 @@
+https://github.com/OJ/gobuster.git
+https://github.com/danielmiessler/SecLists.git
+https://github.com/lgandx/Responder
+https://github.com/carlospolop/Auto_Wordlists/blob/main/wordlists/file_inclusion_windows.txt
+https://github.com/Hackplayers/evil-winrm
+https://github.com/SecureAuthCorp/impacket
+https://github.com/BlackArch/webshells
+https://github.com/veracode-research/rogue-jndi
