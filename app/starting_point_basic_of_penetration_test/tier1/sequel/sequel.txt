@@ -1,0 +1,70 @@
+*** SEQUEL 
+
+### MYSQL explutation
+
+### SQL - STRUCTURED QUERY LANGUAGE 
+
+	
+	# На каком порту работает сервис MySQL 
+		
+		nmap  {target_ip}
+		- 3306
+
+	# Какая версия MySQL работает
+		
+		nmap  -sC -sV --version-trace {target_ip} -v
+		- MariaDB 
+
+	# Какой флаг необходимо использовать, чтобы указать имя пользователя 
+	
+		sudo pacman -S mysql
+		- mysql -h {target_ip} 
+
+	# Какое имя пользователя позволяет войти в MariaDB без ввода пароля 
+		
+		root 
+		- mysql -h {target_ip} -u root
+
+	# Какой символ можем использовать, чтобы указать в запросе, что мы 
+	хотим отобразить все внутри таблицы 
+		
+		*
+		SELECT * FROM table; 
+
+	# Каким символом нужно заканчивать каждый запрос 
+		
+		;
+		SHOW databases;
+		
+
+	
+### SQL MARIA_DB 
+
+
+	# Autorisation
+		
+		mysql -h {target_ip} -u root 
+
+	# SQL MariaDB command
+		
+		SHOW databases; : Prints out the databases we can access.
+
+		USE {database_name}; : Set to use the database named {database_name}.
+
+		SHOW tables; : Prints out the available tables inside the current database.
+
+		SELECT * FROM {table_name}; : Prints out all the data from the table {table_name}.
+
+	# EXAMPLE 
+		
+		@ mysql -h 10.129.231.221 -u root 
+		
+		@ SHOW databases;
+
+		@ USE htb;
+
+		@ SHOW tables;
+
+		@ SELECT * FROM config; 
+
+		
