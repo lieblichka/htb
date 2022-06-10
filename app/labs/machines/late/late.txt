@@ -1,0 +1,10 @@
+
+xxd filename | head 
+
+
+hexedit
+sudo pacman -S hexedit
+
+'/home/svc_acc/app/uploads/php-reverse-shell.jpg2943
+
+Have a look at the ‘Templated’ web challenge. It will give you some points and even better, a full grounding in the knowledge required for this challenge
