@@ -1,0 +1,304 @@
+*** CRUD API 
+	
+	- Мы видели примеры City Searchвеб-приложение, которое использует параметры 
+	PHP для поиска названия города в предыдущих разделах. В этом разделе будет 
+	рассмотрено, как такое веб-приложение может использовать API для выполнения 
+	той же задачи, и мы будем напрямую взаимодействовать с конечной точкой API. 
+
+	### APIs 
+
+		- Существует несколько типов API. Многие API используются для 
+		взаимодействия с базой данных, поэтому мы можем указать запрошенную 
+		таблицу и запрошенную строку в нашем запросе API, а затем использовать 
+		метод HTTP для выполнения необходимой операции. Например, для api.php 
+		конечная точка в нашем примере, если мы хотим обновить city таблице в 
+		базе данных, а строка, которую мы будем обновлять, имеет название города 
+		london, тогда URL-адрес будет выглядеть примерно так:   
+
+			curl -X PUT http://<SERVER_IP>:<PORT>/api.php/city/london ...SNIP...
+
+
+	### CRUD
+
+		- Как мы видим, мы можем легко указать таблицу и строку, над которой мы 
+		хотим выполнить операцию, через такие API. Затем мы можем использовать 
+		разные методы HTTP для выполнения разных операций с этой строкой. Как 
+		правило, API выполняют 4 основные операции с запрошенным объектом базы 
+		данных:
+			
+			Create 		POST 	Добавляет указанные данные в таблицу базы данных
+			
+			Read 		GET 	Считывает указанный объект из таблицы базы данных
+			
+			Updated 	PUT 	Обновляет данные указанной таблицы базы данных
+			
+			Delete 		DELETE 	Удаляет указанную строку из таблицы базы данных
+
+		- Эти четыре операции в основном связаны с широко известными API CRUD, 
+		но тот же принцип также используется в API REST и некоторых других типах 
+		API. Конечно, не все API работают одинаково, и контроль доступа 
+		пользователей будет ограничивать действия, которые мы можем выполнять, и 
+		результаты, которые мы можем видеть. Модуль « Введение в веб-приложения » 
+		более подробно объясняет эти концепции, поэтому вы можете обратиться к 
+		нему за более подробной информацией об API и их использовании. 
+			
+			https://academy.hackthebox.com/module/details/75
+
+	### Read
+	Читать
+
+		- Первое, что мы будем делать при взаимодействии с API, — считывать 
+		данные. Как упоминалось ранее, мы можем просто указать имя таблицы после 
+		API (например, /city), а затем укажите наш поисковый запрос (например, 
+		/london), следующим образом: 
+
+			curl http://<SERVER_IP>:<PORT>/api.php/city/london
+				
+				[{"city_name":"London","country_name":"(UK)"}]
+
+		- Мы видим, что результат отправляется в виде строки JSON. Чтобы 
+		правильно отформатировать его в формате JSON, мы можем направить вывод в 
+		jq утилита, которая отформатирует его правильно. Мы также отключим любой 
+		ненужный вывод cURL с помощью -s, следующим образом: 
+			
+			curl -s http://<SERVER_IP>:<PORT>/api.php/city/london | jq
+				
+				[
+					{
+						"city_name": "London",
+						"country_name": "(UK)"
+					}
+				]
+
+		- Как мы видим, мы получили хорошо отформатированный вывод. Мы также 
+		можем указать поисковый запрос и получить все совпадающие результаты: 
+			
+			curl -s http://<SERVER_IP>:<PORT>/api.php/city/le | jq
+				
+				[
+					{
+						"city_name": "Leeds",
+						"country_name": "(UK)"
+					},
+					{
+						"city_name": "Dudley",
+						"country_name": "(UK)"
+					},
+					{
+						"city_name": "Leicester",
+						"country_name": "(UK)"
+					},
+					...SNIP...
+				]
+
+		- Наконец, мы можем передать пустую строку, чтобы получить все значения 
+		в таблице: 
+				
+				curl -s http://<SERVER_IP>:<PORT>/api.php/city/ | jq
+				[
+					{
+						"city_name": "London",
+						"country_name": "(UK)"
+					},
+					{
+						"city_name": "Birmingham",
+						"country_name": "(UK)"
+					},
+					{
+						"city_name": "Leeds",
+						"country_name": "(UK)"
+					},
+					...SNIP...
+				]
+
+		- Try visiting any of the above links using your browser, to see how the result is rendered.
+		Попробуйте посетить любую из приведенных выше ссылок в своем браузере, 
+		чтобы увидеть, как отображается результат.
+
+	### Create
+		
+		- Чтобы добавить новую запись, мы можем использовать запрос HTTP POST, 
+		который очень похож на то, что мы сделали в предыдущем разделе. Мы можем 
+		просто отправить наши данные JSON, и они будут добавлены в таблицу. 
+		Поскольку этот API использует данные JSON, мы также установим Content-Type 
+		заголовок в JSON следующим образом: 
+			
+			curl -X POST http://<SERVER_IP>:<PORT>/api.php/city/ 
+			-d '{"city_name":"HTB_City", "country_name":"HTB"}' 
+			-H 'Content-Type: application/json'
+
+		- Теперь мы можем прочитать содержимое города, который мы добавили 
+		( HTB_City), чтобы убедиться, что он был успешно добавлен:
+		 	
+			 curl -s http://<SERVER_IP>:<PORT>/api.php/city/HTB_City | jq
+			 	
+				[
+					{
+						"city_name": "HTB_City",
+						"country_name": "HTB"
+					}
+				]
+		- Как мы видим, был создан новый город, которого раньше не было. 
+			
+			... Упражнение. Попробуйте добавить новый город с помощью инструментов 
+			разработчика браузера, используя один из запросов Fetch POST, которые 
+			вы использовали в предыдущем разделе.
+
+	### Update
+	Обновлять
+
+		- Теперь, когда мы знаем, как читать и записывать записи через API, 
+		давайте начнем обсуждение двух других методов HTTP, которые мы до сих 
+		пор не использовали: PUT а также DELETE. Как упоминалось в начале раздела, 
+		PUT используется для обновления записей API и изменения их данных, в то 
+		время как DELETE используется для удаления определенного объекта.
+			
+			(...) Примечание: HTTP PATCHметод также может использоваться для 
+			обновления записей API вместо PUT. Точнее, PATCH используется для 
+			частичного обновления записи (только для изменения некоторых ее 
+			данных «например, только название города»), в то время как PUT 
+			используется для обновления всей записи. Мы также можем использовать 
+			HTTP OPTIONS метод, чтобы увидеть, какой из двух принимается сервером, 
+			а затем использовать соответствующий метод соответственно. В этом 
+			разделе мы сосредоточимся на PUTметод, хотя их использование очень 
+			похоже.	
+
+		- С использованием PUT очень похоже на POSTв этом случае с той лишь 
+		разницей, что мы должны указать имя объекта, который мы хотим редактировать, 
+		в URL-адресе, иначе API не будет знать, какой объект редактировать. Итак, 
+		все, что нам нужно сделать, это указать city имя в URL-адресе, измените 
+		метод запроса на PUT, и предоставьте данные JSON, как мы сделали с POST, 
+		следующим образом: 
+			
+			curl -X PUT http://<SERVER_IP>:<PORT>/api.php/city/london 
+			-d '{"city_name":"New_HTB_City", "country_name":"HTB"}' 
+			-H 'Content-Type: application/json'
+		
+		- Мы видим в приведенном выше примере, что мы сначала указали /city/london 
+		как наш город и передал строку JSON, содержащую "city_name":"New_HTB_City"
+		в данных запроса. Итак, лондонский город больше не должен существовать,
+		а новый город с названием New_HTB_City должно существовать. Давайте 
+		попробуем прочитать оба, чтобы подтвердить: 
+			
+			 curl -s http://<SERVER_IP>:<PORT>/api.php/city/london | jq
+			 	
+				... empty response
+
+			curl -s http://<SERVER_IP>:<PORT>/api.php/city/New_HTB_City | jq
+				
+				[
+					{
+						"city_name": "New_HTB_City",
+						"country_name": "HTB"
+					}
+				]
+
+		- Действительно, мы успешно заменили старое название города на новое. 
+			
+			(...) Примечание. В некоторых API UpdateОперация также может 
+			использоваться для создания новых записей. По сути, мы бы отправили 
+			наши данные, и если бы они не существовали, они бы их создали. 
+			Например, в приведенном выше примере, даже если запись с london city 
+			не существовало, это создало бы новую запись с данными, которые мы 
+			передали. Однако в нашем примере это не так. Попробуйте обновить 
+			несуществующий город и посмотрите, что получится.
+
+	### DELETE
+	УДАЛИТЬ
+		
+		- Наконец, давайте попробуем удалить город, что так же просто, как 
+		прочитать название города. Мы просто указываем название города для API 
+		и используем HTTP DELETE метод, и он удалит запись следующим образом: 
+			
+			curl -X DELETE http://<SERVER_IP>:<PORT>/api.php/city/New_HTB_City
+				
+				... OK empty response 
+
+			curl -s http://<SERVER_IP>:<PORT>/api.php/city/New_HTB_City | jq
+				
+				[]
+		
+		- Как мы видим, после того, как мы удалили New_HTB_City, мы получаем 
+		пустой массив, когда пытаемся прочитать его, что означает, что он больше 
+		не существует.   
+			
+			(...) Упражнение: Попробуйте удалить любой из городов, которые вы 
+			добавили ранее с помощью POST-запросов, а затем прочитайте все записи, 
+			чтобы убедиться, что они были успешно удалены.
+
+	 	- При этом мы можем выполнять все 4 CRUDоперации через cURL. В реальном 
+		веб-приложении такие действия могут быть разрешены не для всех пользователей, 
+		или если кто-либо может изменить или удалить любую запись, это будет 
+		считаться уязвимостью. Каждый пользователь будет иметь определенные 
+		привилегии в отношении того, что он может readили же write, куда write 
+		относится к добавлению, изменению или удалению данных. Чтобы аутентифицировать 
+		нашего пользователя для использования API, нам нужно передать файл cookie 
+		или заголовок авторизации (например, JWT), как мы делали в предыдущем 
+		разделе. В остальном операции аналогичны тем, что мы практиковали в этом 
+		разделе.
+		 
+
+	### QUEST
+		
+		TARGET HOST : 167.172.49.246:30740  
+
+		1) check all cities in table
+			
+			curl http://167.172.49.246:30740/api.php/city
+				
+				[{"city_name":"London","country_name":"(UK)"},{"city_name":"Birmingham","country_name":"(UK)"},{"city_name":"Leeds","country_name":"(UK)"},{"city_name":"Glasgow","country_name":"(UK)"},{"city_name":"Sheffield","country_name":"(UK)"},{"city_name":"Bradford","country_name":"(UK)"},{"city_name":"Liverpool","country_name":"(UK)"},{"city_name":"Edinburgh","country_name":"(UK)"},{"city_name":"Manchester","country_name":"(UK)"},{"city_name":"Bristol","country_name":"(UK)"},{"city_name":"Wakefield","country_name":"(UK)"},{"city_name":"Cardiff","country_name":"(UK)"},{"city_name":"Dudley","country_name":"(UK)"},{"city_name":"Wigan","country_name":"(UK)"},{"city_name":"Coventry","country_name":"(UK)"},{"city_name":"Belfast","country_name":"(UK)"},{"city_name":"Leicester","country_name":"(UK)"},{"city_name":"Sunderland","country_name":"(UK)"},{"city_name":"Doncaster","country_name":"(UK)"},{"city_name":"Stockport","country_name":"(UK)"},{"city_name":"Nottingham","country_name":"(UK)"},{"city_name":"Newcastle","country_name":"(UK)"},{"city_name":"Kingston","country_name":"(UK)"},{"city_name":"Bolton","country_name":"(UK)"},{"city_name":"Walsall","country_name":"(UK)"},{"city_name":"Plymouth","country_name":"(UK)"},{"city_name":"Rotherham","country_name":"(UK)"},{"city_name":"Stoke","country_name":"(UK)"},{"city_name":"Wolverhampton","country_name":"(UK)"},{"city_name":"South","country_name":"(UK)"},{"city_name":"Derby","country_name":"(UK)"},{"city_name":"Swansea","country_name":"(UK)"},{"city_name":"Salford","country_name":"(UK)"},{"city_name":"New York","country_name":"(US)"},{"city_name":"Los Angeles","country_name":"(US)"},{"city_name":"Chicago","country_name":"(US)"},{"city_name":"Houston","country_name":"(US)"},{"city_name":"Phoenix","country_name":"(US)"},{"city_name":"Philadelphia","country_name":"(US)"},{"city_name":"San Antonio","country_name":"(US)"},{"city_name":"San Diego","country_name":"(US)"},{"city_name":"Dallas","country_name":"(US)"},{"city_name":"San Jose","country_name":"(US)"},{"city_name":"Austin","country_name":"(US)"},{"city_name":"Jacksonville","country_name":"(US)"},{"city_name":"Fort Worth","country_name":"(US)"},{"city_name":"Columbus","country_name":"(US)"},{"city_name":"Indianapolis","country_name":"(US)"},{"city_name":"Charlotte","country_name":"(US)"},{"city_name":"San Francisco","country_name":"(US)"},{"city_name":"Seattle","country_name":"(US)"},{"city_name":"Denver","country_name":"(US)"},{"city_name":"Washington","country_name":"(US)"},{"city_name":"Nashville-Davidson","country_name":"(US)"},{"city_name":"Oklahoma City","country_name":"(US)"},{"city_name":"El Paso","country_name":"(US)"},{"city_name":"Boston","country_name":"(US)"},{"city_name":"Portland","country_name":"(US)"},{"city_name":"Las Vegas","country_name":"(US)"},{"city_name":"Detroit","country_name":"(US)"},{"city_name":"Memphis","country_name":"(US)"},{"city_name":"Baltimore","country_name":"(US)"}]
+
+		2) That output contain not sorted data for solve this poblem we need send
+		output to jq
+		Этот вывод содержит не отсортированные данные. Для решения этой проблемы 
+		нам нужно отправить вывод в jq utilite 
+
+			curl http://167.172.49.246:30740/api.php/city | jq 
+				
+				[
+					{
+						"city_name": "London",
+						"country_name": "(UK)"
+					},
+					{
+						"city_name": "Birmingham",
+						"country_name": "(UK)"
+					},
+					{
+						"city_name": "Leeds",
+						"country_name": "(UK)"
+					},
+					{
+						...
+					}
+				]
+		3) Следующим шагом заменим имя города на флаг, как указано в задании
+			
+			curl -X PUT http://167.172.49.246:30740/api.php/city/Memphis 
+			-d  '{"city_name":"flag", "country_name":"(US)"}' 
+			-H 'Content-type: application/json'
+		
+		4) Проверим изменилось ли название города
+
+			curl http://167.172.49.246:30740/api.php/city/flag | jq
+				
+				[
+					{
+						"city_name": "flag",
+						"country_name": "(US)"
+					}
+				]
+		5) Удалим любой город как сказано в квесте
+			
+			curl -X DELETE http://167.172.49.246:30740/api.php/city/London
+
+		6) Получим флаг
+			
+			curl http://167.172.49.246:30740/api.php/city/flag
+				
+				[{"city_name":"flag","country_name":"HTB{crud_4p!_m4n!pul4t0r}"}]
+
+		
+			
+			
+			
