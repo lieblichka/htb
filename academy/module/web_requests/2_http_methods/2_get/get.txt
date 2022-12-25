@@ -167,12 +167,73 @@
 
 			$$$~ web_requests_fetch_search.jpg
 
+			GET http://143.110.164.90:32351/search.php?search=le
+
+			RIGHT BUTTON ON MOUSE  "Use as Fetch in Console"
+
 		- Как мы видим, браузер отправил наш запрос, и мы видим ответ, 
 		возвращенный после него. Мы можем щелкнуть ответ, чтобы просмотреть его 
 		детали, развернуть различные детали и прочитать их. 
 
 	### QUEST
-		
-		 curl 'http://157.245.41.248:30399/search.php?search=flag' -H 'Authorization: Basic YWRtaW46YWRtaW4='
+	
+		 curl http://143.110.164.90:30910/
 		 	
-			flag: HTB{curl_g3773r}
+			HTTP/1.1 401 Authorization Required
+			Date: Thu, 22 Dec 2022 23:16:15 GMT
+			Server: Apache/2.4.41 (Ubuntu)
+			Cache-Control: no-cache, must-revalidate, max-age=0
+			WWW-Authenticate: Basic realm="Access denied"
+			Content-Type: text/html; charset=UTF-8
+
+			### Basic realm="Access denied" 
+
+		curl -u admin:admin http://143.110.164.90:30910 -I  -v 
+		curl http://admin:admin@143.110.164.90:30910 -I  -v 
+			
+			*   Trying 143.110.164.90:30910...
+			* Connected to 143.110.164.90 (143.110.164.90) port 30910 (#0)
+			* Server auth using Basic with user 'admin'
+			> HEAD / HTTP/1.1
+			> Host: 143.110.164.90:30910
+			> Authorization: Basic YWRtaW46YWRtaW4=
+			> User-Agent: curl/7.87.0
+			> Accept: */*
+			>
+			* Mark bundle as not supporting multiuse
+			< HTTP/1.1 200 OK
+
+			### > Authorization: Basic YWRtaW46YWRtaW4=
+
+		
+		curl http://143.110.164.90:30910 -H 'Authorization: Basic YWRtaW46YWRtaW4=' -i -v
+
+
+			
+			<!DOCTYPE html>
+			<html lang="en">
+
+			<head>
+				<meta charset="UTF-8">
+				<title>City Search</title>
+				<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css">
+				<link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Roboto:400,500,700'>
+				<link rel="stylesheet" href="./style.css">
+
+			</head>
+			
+		curl http://143.110.164.90:30910/search.php?search=flag  -H 'Authorization: Basic YWRtaW46YWRtaW4=' -i -v		
+		 	
+			*   Trying 143.110.164.90:30910...
+			* Connected to 143.110.164.90 (143.110.164.90) port 30910 (#0)
+			> GET /search.php?search=flag HTTP/1.1
+			> Host: 143.110.164.90:30910
+			> User-Agent: curl/7.87.0
+			> Accept: */*
+			> Authorization: Basic YWRtaW46YWRtaW4=
+				
+++++++++++++ flag: HTB{curl_g3773r} +++++++++++++++++
+
+
+
+

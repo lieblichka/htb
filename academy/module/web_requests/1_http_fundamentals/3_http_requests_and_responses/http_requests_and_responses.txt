@@ -146,4 +146,36 @@ HTTP-запросы и ответы
 		сведения о них. Затем вы можете нажать на Response вкладку, чтобы 
 		просмотреть текст ответа, а затем нажмите кнопку Raw кнопку, чтобы 
 		просмотреть необработанный (необработанный) исходный код тела ответа.
- 
+
+
+QUESTIONS
+	
+	TARGET: 134.209.23.234:31290
+	
+ 	TASK: FIND VERSION APACHE
+
+		curl 134.209.23.234:31290 -v
+			
+			*   Trying 134.209.23.234:31290...
+			* Connected to 134.209.23.234 (134.209.23.234) port 31290 (#0)
+			> GET / HTTP/1.1
+			> Host: 134.209.23.234:31290
+			> User-Agent: curl/7.86.0
+			> Accept: */*
+			>
+			* Mark bundle as not supporting multiuse
+			< HTTP/1.1 200 OK
+			< Date: Wed, 21 Dec 2022 21:55:08 GMT
+			< Server: Apache/2.4.41 (Ubuntu)
+			< Vary: Accept-Encoding
+			< Content-Length: 348
+			< Content-Type: text/html; charset=UTF-8
+			<
+			...SNIP...
+	
+		
++++++++++++ < Server: Apache/2.4.41 (Ubuntu) +++++++++++++++
+
+
+	
+

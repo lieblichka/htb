@@ -1,0 +1,1 @@
+flag: HTB{curl_g3773r}
